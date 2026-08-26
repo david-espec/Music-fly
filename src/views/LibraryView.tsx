@@ -1,254 +1,375 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import { useMemo, useState } from 'react';
+import type { Track } from '../types';
 import { useLibrary } from '../library/LibraryContext';
 import { usePlayer } from '../player/PlayerContext';
 import { TrackList } from '../components/TrackList';
-import { formatBytes, formatDuration, normalize, plural } from '../lib/format';
-import { FolderIcon, PlayIcon, SearchIcon, ShuffleIcon } from '../components/Icons';
+import { Cover } from '../components/Cover';
+import type { MenuItem } from '../components/Menu';
+import { formatDuration, normalize, plural } from '../lib/format';
+import {
+  ChevronDownIcon,
+  InfoIcon,
+  PlayIcon,
+  PlusIcon,
+  SearchIcon,
+  ShuffleIcon,
+  TrashIcon,
+} from '../components/Icons';
 
-type SortKey = 'recentes' | 'titulo' | 'artista' | 'album';
-type Filter = 'todas' | 'offline' | 'streaming';
+type Section = 'playlists' | 'albuns' | 'artistas';
 
-const SORTS: { key: SortKey; label: string }[] = [
-  { key: 'recentes', label: 'Adicionadas' },
-  { key: 'titulo', label: 'Titulo' },
-  { key: 'artista', label: 'Artista' },
-  { key: 'album', label: 'Album' },
+/** O que esta aberto no detalhe. */
+type Opened =
+  | { kind: 'playlist'; id: string }
+  | { kind: 'album'; key: string }
+  | { kind: 'artista'; key: string };
+
+const SECTIONS: { key: Section; label: string }[] = [
+  { key: 'playlists', label: 'Playlists' },
+  { key: 'albuns', label: 'Albuns' },
+  { key: 'artistas', label: 'Artistas' },
 ];
 
-export function LibraryView() {
-  const { tracks, loading, importFiles, importProgress } = useLibrary();
+interface Collection {
+  key: string;
+  name: string;
+  subtitle: string;
+  tracks: Track[];
+}
+
+/** Agrupa faixas por album ou por artista, ja ordenadas para exibicao. */
+function groupBy(tracks: Track[], by: 'album' | 'artista'): Collection[] {
+  const groups = new Map<string, Track[]>();
+  for (const track of tracks) {
+    // Albuns homonimos de artistas diferentes nao devem se fundir.
+    const key = by === 'album' ? `${track.album} ${track.artist}` : track.artist;
+    const list = groups.get(key);
+    if (list) list.push(track);
+    else groups.set(key, [track]);
+  }
+
+  return [...groups.entries()]
+    .map(([key, list]) => {
+      const ordered = [...list].sort(
+        (a, b) =>
+          (a.trackNo ?? 9999) - (b.trackNo ?? 9999) || a.title.localeCompare(b.title, 'pt-BR'),
+      );
+      return by === 'album'
+        ? {
+            key,
+            name: ordered[0].album,
+            subtitle: `${ordered[0].artist} - ${plural(ordered.length, 'musica', 'musicas')}`,
+            tracks: ordered,
+          }
+        : {
+            key,
+            name: ordered[0].artist,
+            subtitle: plural(ordered.length, 'musica', 'musicas'),
+            tracks: ordered,
+          };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+}
+
+export function LibraryView({ onOpenAbout }: { onOpenAbout: () => void }) {
+  const library = useLibrary();
   const player = usePlayer();
+  const { tracks, playlists } = library;
 
-  const [query, setQuery] = useState('');
-  const [sort, setSort] = useState<SortKey>('recentes');
-  const [filter, setFilter] = useState<Filter>('todas');
-  const [dragging, setDragging] = useState(false);
+  const [section, setSection] = useState<Section>('playlists');
+  const [opened, setOpened] = useState<Opened | null>(null);
+  const [newName, setNewName] = useState('');
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [filter, setFilter] = useState('');
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const folderInputRef = useRef<HTMLInputElement>(null);
+  const byId = useMemo(() => new Map(tracks.map((track) => [track.id, track])), [tracks]);
+  const albums = useMemo(() => groupBy(tracks, 'album'), [tracks]);
+  const artists = useMemo(() => groupBy(tracks, 'artista'), [tracks]);
 
-  // `webkitdirectory` nao existe na tipagem de JSX; aplicamos direto no DOM.
-  useEffect(() => {
-    folderInputRef.current?.setAttribute('webkitdirectory', '');
-  }, []);
+  // --- Detalhe de uma playlist, album ou artista -----------------------------
 
-  const visible = useMemo(() => {
-    const needle = normalize(query.trim());
-    const filtered = tracks.filter((track) => {
-      if (filter === 'offline' && !track.offline) return false;
-      if (filter === 'streaming' && track.offline) return false;
-      if (!needle) return true;
-      return normalize(`${track.title} ${track.artist} ${track.album}`).includes(needle);
-    });
+  if (opened) {
+    const playlist =
+      opened.kind === 'playlist' ? playlists.find((item) => item.id === opened.id) : undefined;
+    const collection =
+      opened.kind === 'album'
+        ? albums.find((item) => item.key === opened.key)
+        : opened.kind === 'artista'
+          ? artists.find((item) => item.key === opened.key)
+          : undefined;
 
-    const sorted = [...filtered];
-    switch (sort) {
-      case 'titulo':
-        sorted.sort((a, b) => a.title.localeCompare(b.title, 'pt-BR'));
-        break;
-      case 'artista':
-        sorted.sort(
-          (a, b) =>
-            a.artist.localeCompare(b.artist, 'pt-BR') || a.title.localeCompare(b.title, 'pt-BR'),
-        );
-        break;
-      case 'album':
-        sorted.sort(
-          (a, b) =>
-            a.album.localeCompare(b.album, 'pt-BR') ||
-            (a.trackNo ?? 0) - (b.trackNo ?? 0) ||
-            a.title.localeCompare(b.title, 'pt-BR'),
-        );
-        break;
-      default:
-        // Lotes mais recentes primeiro; dentro do lote, a ordem do album.
-        sorted.sort(
-          (a, b) =>
-            b.addedAt - a.addedAt ||
-            (a.trackNo ?? 0) - (b.trackNo ?? 0) ||
-            a.title.localeCompare(b.title, 'pt-BR'),
-        );
-    }
-    return sorted;
-  }, [filter, query, sort, tracks]);
+    // Faixas apagadas somem da playlist; a ordem salva e mantida.
+    const detailTracks = playlist
+      ? playlist.trackIds.map((id) => byId.get(id)).filter((track) => track !== undefined)
+      : (collection?.tracks ?? []);
 
-  const stats = useMemo(
-    () => ({
-      duration: tracks.reduce((total, track) => total + track.duration, 0),
-      bytes: tracks.reduce((total, track) => total + (track.offline ? track.size ?? 0 : 0), 0),
-      offline: tracks.filter((track) => track.offline).length,
-    }),
-    [tracks],
-  );
+    const name = playlist?.name ?? collection?.name ?? '';
+    const total = detailTracks.reduce((sum, track) => sum + track.duration, 0);
 
-  const handleFiles = (list: FileList | null) => {
-    if (!list || list.length === 0) return;
-    void importFiles([...list]);
-  };
+    const extraActions = playlist
+      ? (_track: Track, position: number): MenuItem[] => [
+          {
+            label: 'Mover para cima',
+            disabled: position === 0,
+            onSelect: () => void library.movePlaylistTrack(playlist.id, position, position - 1),
+          },
+          {
+            label: 'Mover para baixo',
+            disabled: position === detailTracks.length - 1,
+            onSelect: () => void library.movePlaylistTrack(playlist.id, position, position + 1),
+          },
+          {
+            label: 'Tirar da playlist',
+            onSelect: () => void library.removeFromPlaylist(playlist.id, detailTracks[position].id),
+          },
+        ]
+      : undefined;
 
-  const onDrop = (event: DragEvent<HTMLElement>) => {
-    event.preventDefault();
-    setDragging(false);
-    handleFiles(event.dataTransfer.files);
-  };
-
-  const playAll = (shuffleFirst: boolean) => {
-    if (visible.length === 0) return;
-    const start = shuffleFirst ? Math.floor(Math.random() * visible.length) : 0;
-    player.playTracks(visible, start);
-  };
-
-  return (
-    <section
-      className={`view ${dragging ? 'view--dropping' : ''}`}
-      onDragOver={(event) => {
-        event.preventDefault();
-        setDragging(true);
-      }}
-      onDragLeave={(event) => {
-        if (event.currentTarget.contains(event.relatedTarget as Node)) return;
-        setDragging(false);
-      }}
-      onDrop={onDrop}
-    >
-      <header className="view__header">
-        <div>
-          <h1>Sua biblioteca</h1>
-          <p className="view__subtitle">
-            {loading
-              ? 'Abrindo...'
-              : `${plural(tracks.length, 'musica', 'musicas')} · ${formatDuration(stats.duration)}` +
-                (stats.bytes ? ` · ${formatBytes(stats.bytes)} offline` : '')}
-          </p>
-        </div>
-        <div className="view__actions">
+    return (
+      <section className="view">
+        <header className="view__header view__header--detail">
           <button
             type="button"
-            className="button button--accent"
-            onClick={() => fileInputRef.current?.click()}
+            className="icon-button icon-button--back"
+            aria-label="Voltar para a biblioteca"
+            onClick={() => setOpened(null)}
           >
-            <FolderIcon width={18} height={18} />
-            Adicionar musicas
+            <ChevronDownIcon width={24} height={24} />
           </button>
-          <button type="button" className="button" onClick={() => folderInputRef.current?.click()}>
-            Pasta inteira
-          </button>
-        </div>
-      </header>
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        accept="audio/*,.mp3,.m4a,.flac,.ogg,.opus,.wav"
-        hidden
-        onChange={(event) => {
-          handleFiles(event.target.files);
-          event.target.value = '';
-        }}
-      />
-      <input
-        ref={folderInputRef}
-        type="file"
-        multiple
-        hidden
-        onChange={(event) => {
-          handleFiles(event.target.files);
-          event.target.value = '';
-        }}
-      />
-
-      {importProgress && (
-        <div className="progress" role="status">
-          <div
-            className="progress__bar"
-            style={{ width: `${(importProgress.done / importProgress.total) * 100}%` }}
-          />
-          <span>
-            Importando {importProgress.done + 1} de {importProgress.total}:{' '}
-            {importProgress.currentName}
-          </span>
-        </div>
-      )}
-
-      {tracks.length > 0 && (
-        <div className="toolbar">
-          <label className="search">
-            <SearchIcon width={18} height={18} />
-            <input
-              type="search"
-              value={query}
-              placeholder="Buscar na biblioteca"
-              aria-label="Buscar na biblioteca"
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </label>
-
-          <div className="chips" role="group" aria-label="Filtrar">
-            {(['todas', 'offline', 'streaming'] as Filter[]).map((option) => (
-              <button
-                key={option}
-                type="button"
-                className={`chip ${filter === option ? 'is-active' : ''}`}
-                aria-pressed={filter === option}
-                onClick={() => setFilter(option)}
-              >
-                {option === 'todas'
-                  ? 'Todas'
-                  : option === 'offline'
-                    ? `Offline (${stats.offline})`
-                    : 'Streaming'}
-              </button>
-            ))}
+          <div>
+            <h1>{name}</h1>
+            <p className="view__subtitle">
+              {plural(detailTracks.length, 'musica', 'musicas')} - {formatDuration(total)}
+            </p>
           </div>
-
-          <label className="select">
-            <span className="visually-hidden">Ordenar por</span>
-            <select value={sort} onChange={(event) => setSort(event.target.value as SortKey)}>
-              {SORTS.map((option) => (
-                <option key={option.key} value={option.key}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div className="toolbar__play">
-            <button type="button" className="button" onClick={() => playAll(false)}>
+          <div className="view__actions">
+            <button
+              type="button"
+              className="button button--accent"
+              disabled={detailTracks.length === 0}
+              onClick={() => player.playTracks(detailTracks, 0)}
+            >
               <PlayIcon width={16} height={16} />
               Tocar
             </button>
-            <button type="button" className="button" onClick={() => playAll(true)}>
+            <button
+              type="button"
+              className="button"
+              disabled={detailTracks.length === 0}
+              onClick={() =>
+                player.playTracks(detailTracks, Math.floor(Math.random() * detailTracks.length))
+              }
+            >
               <ShuffleIcon width={16} height={16} />
               Aleatorio
             </button>
           </div>
-        </div>
-      )}
+        </header>
 
-      {tracks.length === 0 && !loading ? (
-        <div className="dropzone">
-          <FolderIcon width={40} height={40} />
-          <h2>Arraste suas musicas para ca</h2>
-          <p>
-            Os arquivos ficam guardados no seu proprio dispositivo. Nada e enviado para nenhum
-            servidor, e tudo continua tocando sem internet.
-          </p>
-          <button
-            type="button"
-            className="button button--accent"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            Escolher arquivos
-          </button>
-        </div>
-      ) : (
         <TrackList
-          tracks={visible}
+          tracks={detailTracks}
+          extraActions={extraActions}
           emptyMessage={
-            query ? `Nada encontrado para "${query}".` : 'Nenhuma musica com esse filtro.'
+            playlist
+              ? 'Playlist vazia. Use o menu de uma musica para adiciona-la aqui.'
+              : 'Nada por aqui.'
           }
         />
+      </section>
+    );
+  }
+
+  // --- Lista da biblioteca ---------------------------------------------------
+
+  const needle = normalize(filter.trim());
+  const items = (section === 'albuns' ? albums : artists).filter(
+    (item) => !needle || normalize(`${item.name} ${item.subtitle}`).includes(needle),
+  );
+
+  return (
+    <section className="view">
+      <header className="view__header">
+        <div>
+          <h1>Sua biblioteca</h1>
+          <p className="view__subtitle">
+            {plural(playlists.length, 'playlist', 'playlists')},{' '}
+            {plural(albums.length, 'album', 'albuns')} e{' '}
+            {plural(artists.length, 'artista', 'artistas')}
+          </p>
+        </div>
+        <button
+          type="button"
+          className="icon-button"
+          aria-label="Sobre e privacidade"
+          title="Sobre e privacidade"
+          onClick={onOpenAbout}
+        >
+          <InfoIcon width={22} height={22} />
+        </button>
+      </header>
+
+      <div className="chips" role="tablist" aria-label="Secoes da biblioteca">
+        {SECTIONS.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            role="tab"
+            aria-selected={section === item.key}
+            className={`chip ${section === item.key ? 'is-active' : ''}`}
+            onClick={() => setSection(item.key)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {section === 'playlists' ? (
+        <>
+          <form
+            className="inline-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void library.createPlaylist(newName).then((playlist) => {
+                setNewName('');
+                setOpened({ kind: 'playlist', id: playlist.id });
+              });
+            }}
+          >
+            <input
+              type="text"
+              value={newName}
+              placeholder="Nome da nova playlist"
+              aria-label="Nome da nova playlist"
+              onChange={(event) => setNewName(event.target.value)}
+            />
+            <button type="submit" className="button button--accent" disabled={!newName.trim()}>
+              <PlusIcon width={16} height={16} />
+              Criar
+            </button>
+          </form>
+
+          {playlists.length === 0 ? (
+            <p className="empty">
+              Nenhuma playlist ainda. Crie uma acima e adicione musicas pelo menu de cada faixa.
+            </p>
+          ) : (
+            <ul className="playlists">
+              {playlists.map((playlist) => {
+                const first = playlist.trackIds
+                  .map((id) => byId.get(id))
+                  .find((track) => track !== undefined);
+                return (
+                  <li key={playlist.id} className="playlists__item">
+                    <button
+                      type="button"
+                      className="playlists__open"
+                      onClick={() => setOpened({ kind: 'playlist', id: playlist.id })}
+                    >
+                      {first ? (
+                        <Cover track={first} size={56} />
+                      ) : (
+                        <span className="cover cover--empty" style={{ width: 56, height: 56 }} />
+                      )}
+                      <span className="playlists__info">
+                        <span className="playlists__name">{playlist.name}</span>
+                        <span className="playlists__count">
+                          {plural(playlist.trackIds.length, 'musica', 'musicas')}
+                        </span>
+                      </span>
+                    </button>
+
+                    {renamingId === playlist.id ? (
+                      <form
+                        className="playlists__rename"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          void library.renamePlaylist(playlist.id, renameValue);
+                          setRenamingId(null);
+                        }}
+                      >
+                        <input
+                          type="text"
+                          value={renameValue}
+                          aria-label="Novo nome"
+                          autoFocus
+                          onChange={(event) => setRenameValue(event.target.value)}
+                          onBlur={() => setRenamingId(null)}
+                        />
+                      </form>
+                    ) : (
+                      <button
+                        type="button"
+                        className="button button--ghost"
+                        onClick={() => {
+                          setRenamingId(playlist.id);
+                          setRenameValue(playlist.name);
+                        }}
+                      >
+                        Renomear
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      className="icon-button icon-button--danger"
+                      aria-label={`Apagar playlist ${playlist.name}`}
+                      onClick={() => void library.removePlaylist(playlist.id)}
+                    >
+                      <TrashIcon width={18} height={18} />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </>
+      ) : (
+        <>
+          <label className="search search--filter">
+            <SearchIcon width={18} height={18} />
+            <input
+              type="search"
+              value={filter}
+              placeholder={section === 'albuns' ? 'Filtrar albuns' : 'Filtrar artistas'}
+              aria-label={section === 'albuns' ? 'Filtrar albuns' : 'Filtrar artistas'}
+              onChange={(event) => setFilter(event.target.value)}
+            />
+          </label>
+
+          {items.length === 0 ? (
+            <p className="empty">
+              {tracks.length === 0
+                ? 'Adicione musicas na aba Inicio para montar sua biblioteca.'
+                : 'Nada encontrado com esse filtro.'}
+            </p>
+          ) : (
+            <ul className="collections">
+              {items.map((item) => (
+                <li key={item.key}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpened(
+                        section === 'albuns'
+                          ? { kind: 'album', key: item.key }
+                          : { kind: 'artista', key: item.key },
+                      )
+                    }
+                  >
+                    <Cover
+                      track={item.tracks[0]}
+                      size={132}
+                      className={section === 'artistas' ? 'cover--round' : ''}
+                    />
+                    <span className="collections__name">{item.name}</span>
+                    <span className="collections__meta">{item.subtitle}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       )}
     </section>
   );

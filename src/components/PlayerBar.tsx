@@ -4,9 +4,9 @@ import { Cover } from './Cover';
 import { SeekBar } from './SeekBar';
 import { PlayerControls } from './PlayerControls';
 import { NowPlaying } from './NowPlaying';
-import { MuteIcon, VolumeIcon } from './Icons';
+import { LyricsIcon, MuteIcon, VolumeIcon } from './Icons';
 
-export function PlayerBar() {
+export function PlayerBar({ onOpenLyrics }: { onOpenLyrics: () => void }) {
   const player = usePlayer();
   const [expanded, setExpanded] = useState(false);
   const track = player.current;
@@ -48,6 +48,15 @@ export function PlayerBar() {
         </div>
 
         <div className="playerbar__volume">
+          <button
+            type="button"
+            className="icon-button playerbar__lyrics"
+            aria-label="Ver a letra"
+            title="Ver a letra"
+            onClick={onOpenLyrics}
+          >
+            <LyricsIcon />
+          </button>
           <button
             type="button"
             className="icon-button"

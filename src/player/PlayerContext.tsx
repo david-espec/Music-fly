@@ -29,6 +29,13 @@ interface PlayerValue {
   repeat: RepeatMode;
   shuffle: boolean;
 
+  /**
+   * Tempo exato do audio agora. A letra sincronizada le isto a cada quadro:
+   * `currentTime` do estado so muda com o evento timeupdate (~4x por segundo),
+   * frequencia baixa demais para o destaque acompanhar a musica.
+   */
+  getCurrentTime: () => number;
+
   playTracks: (tracks: Track[], startIndex?: number) => void;
   addToQueue: (tracks: Track[]) => void;
   playNextInQueue: (tracks: Track[]) => void;
@@ -367,6 +374,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [currentId]);
 
+  const getCurrentTime = useCallback(() => audioRef.current?.currentTime ?? 0, []);
+
   const seek = useCallback((seconds: number) => {
     const audio = audioRef.current;
     if (!audio || !Number.isFinite(seconds)) return;
@@ -493,6 +502,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       muted,
       repeat,
       shuffle,
+      getCurrentTime,
       playTracks,
       addToQueue,
       playNextInQueue,
@@ -511,7 +521,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }),
     [
       queue, current, currentQueuePosition, isPlaying, isLoading, currentTime, duration,
-      volume, muted, repeat, shuffle, playTracks, addToQueue, playNextInQueue,
+      volume, muted, repeat, shuffle, getCurrentTime, playTracks, addToQueue, playNextInQueue,
       removeFromQueue, clearQueue, jumpTo, toggle, next, previous, seek, seekBy,
       setVolume, toggleMute, cycleRepeat, toggleShuffle,
     ],

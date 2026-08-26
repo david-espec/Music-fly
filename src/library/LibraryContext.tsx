@@ -4,15 +4,19 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
-import type { Playlist, Track } from '../types';
+import type { Lyrics, Playlist, Track } from '../types';
 import {
   deletePlaylist as dbDeletePlaylist,
   deleteTrack as dbDeleteTrack,
+  deleteLyrics,
   getAllTracks,
+  getLyrics,
   getPlaylists,
+  putLyrics,
   putAudioBlob,
   putCoverBlob,
   putPlaylist,
@@ -21,7 +25,9 @@ import {
   saveTrackWithAssets,
 } from '../db';
 import { isAudioFile, readLocalFile } from '../lib/metadata';
-import { uid } from '../lib/format';
+import { hasTimestamps, parseLrc } from '../lib/lrc';
+import { fetchLyrics } from '../lib/lyricsProvider';
+import { normalize, uid } from '../lib/format';
 import { useToast } from '../components/Toast';
 import { emit, on } from '../lib/bus';
 
@@ -30,6 +36,12 @@ export interface ImportProgress {
   total: number;
   currentName: string;
 }
+
+export type LyricsState =
+  | { status: 'carregando' }
+  | { status: 'ausente' }
+  | { status: 'pronta'; lyrics: Lyrics }
+  | { status: 'erro'; message: string };
 
 interface LibraryValue {
   tracks: Track[];
@@ -51,9 +63,26 @@ interface LibraryValue {
   addToPlaylist: (playlistId: string, trackIds: string[]) => Promise<void>;
   removeFromPlaylist: (playlistId: string, trackId: string) => Promise<void>;
   movePlaylistTrack: (playlistId: string, from: number, to: number) => Promise<void>;
+
+  /** Letra ja carregada desta faixa, se houver. */
+  lyricsFor: (trackId: string) => LyricsState | undefined;
+  /** Le a letra guardada; nao vai a rede. */
+  loadLyrics: (trackId: string) => Promise<void>;
+  /** Procura a letra no LRCLIB e guarda o resultado. */
+  searchLyricsOnline: (track: Track) => Promise<void>;
+  /** Anexa um arquivo .lrc escolhido pelo usuario a uma faixa. */
+  attachLrcFile: (track: Track, file: File) => Promise<void>;
+  /** Adianta ou atrasa a letra inteira, em segundos. */
+  setLyricsOffset: (trackId: string, offset: number) => Promise<void>;
+  removeLyrics: (trackId: string) => Promise<void>;
 }
 
 const LibraryContext = createContext<LibraryValue | null>(null);
+
+/** Nome do arquivo sem extensao e sem acentos, para casar .lrc com a musica. */
+function fileStem(name: string): string {
+  return normalize(name.replace(/\.[^.]+$/, '').replace(/_/g, ' ')).trim();
+}
 
 /** Assinatura usada para nao importar o mesmo arquivo duas vezes. */
 const signature = (track: Track) =>
@@ -66,6 +95,14 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [importProgress, setImportProgress] = useState<ImportProgress | null>(null);
   const [downloading, setDownloading] = useState<Record<string, number>>({});
+  const [lyricsByTrack, setLyricsByTrack] = useState<Record<string, LyricsState>>({});
+
+  // Espelho de `tracks` para as acoes de letra lerem o estado atual sem
+  // precisarem ser recriadas a cada mudanca da biblioteca.
+  const tracksRef = useRef<Track[]>([]);
+  useEffect(() => {
+    tracksRef.current = tracks;
+  }, [tracks]);
 
   useEffect(() => {
     void (async () => {
@@ -95,12 +132,68 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const storeLyrics = useCallback(async (lyrics: Lyrics) => {
+    await putLyrics(lyrics);
+    setLyricsByTrack((current) => ({
+      ...current,
+      [lyrics.trackId]: { status: 'pronta', lyrics },
+    }));
+    setTracks((current) =>
+      current.map((track) =>
+        track.id === lyrics.trackId && !track.hasLyrics ? { ...track, hasLyrics: true } : track,
+      ),
+    );
+    const track = tracksRef.current.find((item: Track) => item.id === lyrics.trackId);
+    if (track && !track.hasLyrics) await putTrack({ ...track, hasLyrics: true });
+  }, []);
+
   // --- Importacao de arquivos locais -----------------------------------------
+
+  /**
+   * Casa arquivos .lrc com as faixas pelo nome do arquivo: "Musica.lrc" vai
+   * para "Musica.mp3". Devolve quantas letras foram anexadas.
+   */
+  const attachLrcByFilename = useCallback(
+    async (lrcFiles: File[], candidates: Track[]) => {
+      if (lrcFiles.length === 0) return 0;
+      const byStem = new Map<string, Track>();
+      for (const track of candidates) {
+        if (track.fileName) byStem.set(fileStem(track.fileName), track);
+        byStem.set(fileStem(`${track.artist} - ${track.title}`), track);
+      }
+
+      let attached = 0;
+      for (const file of lrcFiles) {
+        const track = byStem.get(fileStem(file.name));
+        if (!track) continue;
+        try {
+          const { lines } = parseLrc(await file.text());
+          if (lines.length === 0) continue;
+          await storeLyrics({
+            trackId: track.id,
+            lines,
+            synced: hasTimestamps(lines),
+            instrumental: false,
+            source: 'arquivo',
+            offset: 0,
+            savedAt: Date.now(),
+          });
+          attached += 1;
+        } catch {
+          // Arquivo ilegivel: seguimos com os demais.
+        }
+      }
+      return attached;
+    },
+    [storeLyrics],
+  );
 
   const importFiles = useCallback(
     async (files: File[]) => {
       const audioFiles = files.filter(isAudioFile);
-      if (audioFiles.length === 0) {
+      const lrcFiles = files.filter((file) => /\.lrc$/i.test(file.name));
+
+      if (audioFiles.length === 0 && lrcFiles.length === 0) {
         notify('Nenhum arquivo de audio reconhecido.', 'erro');
         return;
       }
@@ -116,13 +209,24 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       for (const [i, file] of audioFiles.entries()) {
         setImportProgress({ done: i, total: audioFiles.length, currentName: file.name });
         try {
-          const { track: parsed, cover } = await readLocalFile(file);
+          const { track: parsed, cover, lyrics: embedded } = await readLocalFile(file);
           const track = { ...parsed, addedAt: batchAddedAt };
           if (existing.has(signature(track))) {
             skipped += 1;
             continue;
           }
           await saveTrackWithAssets(track, file, cover);
+          if (embedded) {
+            await putLyrics({
+              trackId: track.id,
+              lines: embedded.lines,
+              synced: embedded.synced,
+              instrumental: false,
+              source: 'embutida',
+              offset: 0,
+              savedAt: batchAddedAt,
+            });
+          }
           existing.add(signature(track));
           added.push(track);
         } catch {
@@ -133,13 +237,17 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       setImportProgress(null);
       if (added.length > 0) setTracks((current) => [...current, ...added]);
 
+      // Arquivos .lrc na mesma selecao sao casados pelo nome com as musicas.
+      const lyricsAttached = await attachLrcByFilename(lrcFiles, [...tracks, ...added]);
+
       const parts: string[] = [];
       if (added.length) parts.push(`${added.length} adicionada(s)`);
       if (skipped) parts.push(`${skipped} ja estava(m) na biblioteca`);
       if (failed) parts.push(`${failed} com erro`);
+      if (lyricsAttached) parts.push(`${lyricsAttached} letra(s) anexada(s)`);
       notify(parts.join(', ') || 'Nada a importar.', failed && !added.length ? 'erro' : 'sucesso');
     },
-    [notify, tracks],
+    [attachLrcByFilename, notify, tracks],
   );
 
   const removeTrack = useCallback(
@@ -277,6 +385,105 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     [notify],
   );
 
+  // --- Letras ----------------------------------------------------------------
+
+  const lyricsFor = useCallback(
+    (trackId: string) => lyricsByTrack[trackId],
+    [lyricsByTrack],
+  );
+
+  const loadLyrics = useCallback(async (trackId: string) => {
+    setLyricsByTrack((current) =>
+      current[trackId] ? current : { ...current, [trackId]: { status: 'carregando' } },
+    );
+    const stored = await getLyrics(trackId);
+    setLyricsByTrack((current) => ({
+      ...current,
+      [trackId]: stored ? { status: 'pronta', lyrics: stored } : { status: 'ausente' },
+    }));
+  }, []);
+
+  const searchLyricsOnline = useCallback(
+    async (track: Track) => {
+      if (!navigator.onLine) {
+        notify('Sem internet para procurar a letra agora.', 'erro');
+        return;
+      }
+      setLyricsByTrack((current) => ({ ...current, [track.id]: { status: 'carregando' } }));
+      try {
+        const result = await fetchLyrics(track);
+        if (!result) {
+          setLyricsByTrack((current) => ({ ...current, [track.id]: { status: 'ausente' } }));
+          notify(`Nenhuma letra encontrada para "${track.title}".`);
+          return;
+        }
+        await storeLyrics({
+          trackId: track.id,
+          lines: result.lines,
+          synced: result.synced,
+          instrumental: result.instrumental,
+          source: 'lrclib',
+          offset: 0,
+          savedAt: Date.now(),
+        });
+        notify(
+          result.instrumental
+            ? 'Faixa marcada como instrumental.'
+            : result.synced
+              ? 'Letra sincronizada encontrada.'
+              : 'Letra encontrada, mas sem sincronia.',
+          'sucesso',
+        );
+      } catch {
+        setLyricsByTrack((current) => ({
+          ...current,
+          [track.id]: { status: 'erro', message: 'Nao foi possivel falar com o acervo de letras.' },
+        }));
+      }
+    },
+    [notify, storeLyrics],
+  );
+
+  const attachLrcFile = useCallback(
+    async (track: Track, file: File) => {
+      const { lines } = parseLrc(await file.text());
+      if (lines.length === 0) {
+        notify('Esse arquivo .lrc nao tem linhas com marcacao de tempo.', 'erro');
+        return;
+      }
+      await storeLyrics({
+        trackId: track.id,
+        lines,
+        synced: hasTimestamps(lines),
+        instrumental: false,
+        source: 'arquivo',
+        offset: 0,
+        savedAt: Date.now(),
+      });
+      notify('Letra adicionada.', 'sucesso');
+    },
+    [notify, storeLyrics],
+  );
+
+  const setLyricsOffset = useCallback(
+    async (trackId: string, offset: number) => {
+      const state = lyricsByTrack[trackId];
+      if (state?.status !== 'pronta') return;
+      await storeLyrics({ ...state.lyrics, offset });
+    },
+    [lyricsByTrack, storeLyrics],
+  );
+
+  const removeLyrics = useCallback(async (trackId: string) => {
+    await deleteLyrics(trackId);
+    setLyricsByTrack((current) => ({ ...current, [trackId]: { status: 'ausente' } }));
+    setTracks((current) =>
+      current.map((track) => (track.id === trackId ? { ...track, hasLyrics: false } : track)),
+    );
+    const track = tracksRef.current.find((item: Track) => item.id === trackId);
+    if (track) await putTrack({ ...track, hasLyrics: false });
+  }, []);
+
   // --- Playlists -------------------------------------------------------------
 
   const persistPlaylist = useCallback(async (playlist: Playlist) => {
@@ -384,11 +591,18 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       addToPlaylist,
       removeFromPlaylist,
       movePlaylistTrack,
+      lyricsFor,
+      loadLyrics,
+      searchLyricsOnline,
+      attachLrcFile,
+      setLyricsOffset,
+      removeLyrics,
     }),
     [
       tracks, playlists, loading, importProgress, downloading, importFiles, removeTrack,
       saveArchiveTracks, downloadForOffline, removeOffline, createPlaylist, renamePlaylist,
-      removePlaylist, addToPlaylist, removeFromPlaylist, movePlaylistTrack,
+      removePlaylist, addToPlaylist, removeFromPlaylist, movePlaylistTrack, lyricsFor,
+      loadLyrics, searchLyricsOnline, attachLrcFile, setLyricsOffset, removeLyrics,
     ],
   );
 

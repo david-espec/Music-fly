@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { Playlist, Track } from '../types';
+import type { Lyrics, Playlist, Track } from '../types';
 
 interface MusicFlyDB extends DBSchema {
   tracks: {
@@ -12,6 +12,8 @@ interface MusicFlyDB extends DBSchema {
   /** Capas de album (arte embutida ou baixada do acervo). */
   covers: { key: string; value: Blob };
   playlists: { key: string; value: Playlist };
+  /** Letras por faixa: embutidas, importadas de .lrc ou buscadas no LRCLIB. */
+  lyrics: { key: string; value: Lyrics };
   /** Preferencias e estado da ultima sessao. */
   prefs: { key: string; value: unknown };
 }
@@ -20,15 +22,20 @@ let dbPromise: Promise<IDBPDatabase<MusicFlyDB>> | null = null;
 
 function db() {
   if (!dbPromise) {
-    dbPromise = openDB<MusicFlyDB>('music-fly', 1, {
-      upgrade(database) {
-        const tracks = database.createObjectStore('tracks', { keyPath: 'id' });
-        tracks.createIndex('by-addedAt', 'addedAt');
-        tracks.createIndex('by-source', 'source');
-        database.createObjectStore('audio');
-        database.createObjectStore('covers');
-        database.createObjectStore('playlists', { keyPath: 'id' });
-        database.createObjectStore('prefs');
+    dbPromise = openDB<MusicFlyDB>('music-fly', 2, {
+      upgrade(database, oldVersion) {
+        if (oldVersion < 1) {
+          const tracks = database.createObjectStore('tracks', { keyPath: 'id' });
+          tracks.createIndex('by-addedAt', 'addedAt');
+          tracks.createIndex('by-source', 'source');
+          database.createObjectStore('audio');
+          database.createObjectStore('covers');
+          database.createObjectStore('playlists', { keyPath: 'id' });
+          database.createObjectStore('prefs');
+        }
+        if (oldVersion < 2) {
+          database.createObjectStore('lyrics', { keyPath: 'trackId' });
+        }
       },
     });
   }
@@ -70,11 +77,12 @@ export async function saveTrackWithAssets(
 
 export async function deleteTrack(id: string): Promise<void> {
   const database = await db();
-  const tx = database.transaction(['tracks', 'audio', 'covers'], 'readwrite');
+  const tx = database.transaction(['tracks', 'audio', 'covers', 'lyrics'], 'readwrite');
   await Promise.all([
     tx.objectStore('tracks').delete(id),
     tx.objectStore('audio').delete(id),
     tx.objectStore('covers').delete(id),
+    tx.objectStore('lyrics').delete(id),
     tx.done,
   ]);
   revokeCachedUrl(id);
@@ -114,6 +122,20 @@ export async function putCoverBlob(id: string, blob: Blob): Promise<void> {
 
 export async function getCoverBlob(id: string): Promise<Blob | undefined> {
   return (await db()).get('covers', id);
+}
+
+// --- Letras -----------------------------------------------------------------
+
+export async function getLyrics(trackId: string): Promise<Lyrics | undefined> {
+  return (await db()).get('lyrics', trackId);
+}
+
+export async function putLyrics(lyrics: Lyrics): Promise<void> {
+  await (await db()).put('lyrics', lyrics);
+}
+
+export async function deleteLyrics(trackId: string): Promise<void> {
+  await (await db()).delete('lyrics', trackId);
 }
 
 // --- Playlists --------------------------------------------------------------

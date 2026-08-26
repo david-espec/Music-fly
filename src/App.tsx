@@ -1,32 +1,36 @@
 import { useEffect, useState } from 'react';
 import type { ViewId } from './types';
 import { usePlayer } from './player/PlayerContext';
+import { HomeView } from './views/HomeView';
 import { LibraryView } from './views/LibraryView';
-import { PlaylistsView } from './views/PlaylistsView';
+import { LyricsView } from './views/LyricsView';
 import { DiscoverView } from './views/DiscoverView';
 import { AboutView } from './views/AboutView';
 import { PlayerBar } from './components/PlayerBar';
-import { CompassIcon, InfoIcon, LibraryIcon, OfflineIcon, PlaylistIcon } from './components/Icons';
+import {
+  CompassIcon,
+  HomeIcon,
+  LibraryIcon,
+  LyricsIcon,
+  OfflineIcon,
+} from './components/Icons';
 
-const NAV: { id: ViewId; label: string; icon: typeof LibraryIcon }[] = [
+const NAV: { id: ViewId; label: string; icon: typeof HomeIcon }[] = [
+  { id: 'inicio', label: 'Inicio', icon: HomeIcon },
   { id: 'biblioteca', label: 'Biblioteca', icon: LibraryIcon },
-  { id: 'playlists', label: 'Playlists', icon: PlaylistIcon },
+  { id: 'letra', label: 'Letra', icon: LyricsIcon },
   { id: 'descobrir', label: 'Descobrir', icon: CompassIcon },
-  { id: 'sobre', label: 'Sobre', icon: InfoIcon },
 ];
 
 /** Atalhos de teclado nao devem disparar enquanto o usuario digita. */
 function isTyping(target: EventTarget | null): boolean {
   const element = target as HTMLElement | null;
   if (!element) return false;
-  return (
-    element.isContentEditable ||
-    ['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName)
-  );
+  return element.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName);
 }
 
 export function App() {
-  const [view, setView] = useState<ViewId>('biblioteca');
+  const [view, setView] = useState<ViewId>('inicio');
   const [online, setOnline] = useState(navigator.onLine);
   const player = usePlayer();
 
@@ -116,13 +120,14 @@ export function App() {
       </nav>
 
       <main className="main">
-        {view === 'biblioteca' && <LibraryView />}
-        {view === 'playlists' && <PlaylistsView />}
+        {view === 'inicio' && <HomeView />}
+        {view === 'biblioteca' && <LibraryView onOpenAbout={() => setView('sobre')} />}
+        {view === 'letra' && <LyricsView />}
         {view === 'descobrir' && <DiscoverView />}
-        {view === 'sobre' && <AboutView />}
+        {view === 'sobre' && <AboutView onBack={() => setView('biblioteca')} />}
       </main>
 
-      <PlayerBar />
+      <PlayerBar onOpenLyrics={() => setView('letra')} />
     </div>
   );
 }

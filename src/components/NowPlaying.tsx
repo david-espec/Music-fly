@@ -1,20 +1,38 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { usePlayer } from '../player/PlayerContext';
+import { useLibrary } from '../library/LibraryContext';
 import { formatDuration, plural } from '../lib/format';
 import { licenseLabel, detailsUrlFor } from '../lib/archive';
 import { Cover } from './Cover';
 import { SeekBar } from './SeekBar';
 import { PlayerControls } from './PlayerControls';
-import { ChevronDownIcon, CloseIcon, QueueIcon, TrashIcon } from './Icons';
+import { SyncedLyrics } from './SyncedLyrics';
+import { ChevronDownIcon, CloseIcon, LyricsIcon, QueueIcon, TrashIcon } from './Icons';
 
-/** Tela cheia da musica atual, com a fila logo abaixo. */
+/** Qual painel ocupa o meio da tela cheia. */
+type Pane = 'capa' | 'letra' | 'fila';
+
+/** Tela cheia da musica atual, com letra e fila logo abaixo. */
 export function NowPlaying({ onClose }: { onClose: () => void }) {
   const player = usePlayer();
-  const [showQueue, setShowQueue] = useState(false);
+  const library = useLibrary();
+  const [pane, setPane] = useState<Pane>('capa');
   const track = player.current;
 
+  const { loadLyrics } = library;
+  const trackId = track?.id;
+
+  useEffect(() => {
+    if (trackId && pane === 'letra') void loadLyrics(trackId);
+  }, [loadLyrics, pane, trackId]);
+
   if (!track) return null;
+
   const license = licenseLabel(track.license);
+  const lyricsState = library.lyricsFor(track.id);
+  const lyrics = lyricsState?.status === 'pronta' ? lyricsState.lyrics : null;
+
+  const togglePane = (target: Pane) => setPane((current) => (current === target ? 'capa' : target));
 
   return (
     <div className="nowplaying" role="dialog" aria-modal="true" aria-label="Tocando agora">
@@ -25,18 +43,29 @@ export function NowPlaying({ onClose }: { onClose: () => void }) {
         <span className="nowplaying__source">
           {track.source === 'local' ? 'Da sua biblioteca' : 'Acervo livre'}
         </span>
-        <button
-          type="button"
-          className={`icon-button ${showQueue ? 'is-active' : ''}`}
-          aria-label="Fila de reproducao"
-          aria-pressed={showQueue}
-          onClick={() => setShowQueue((value) => !value)}
-        >
-          <QueueIcon width={22} height={22} />
-        </button>
+        <span className="nowplaying__panes">
+          <button
+            type="button"
+            className={`icon-button ${pane === 'letra' ? 'is-active' : ''}`}
+            aria-label="Letra da musica"
+            aria-pressed={pane === 'letra'}
+            onClick={() => togglePane('letra')}
+          >
+            <LyricsIcon width={22} height={22} />
+          </button>
+          <button
+            type="button"
+            className={`icon-button ${pane === 'fila' ? 'is-active' : ''}`}
+            aria-label="Fila de reproducao"
+            aria-pressed={pane === 'fila'}
+            onClick={() => togglePane('fila')}
+          >
+            <QueueIcon width={22} height={22} />
+          </button>
+        </span>
       </header>
 
-      {showQueue ? (
+      {pane === 'fila' && (
         <div className="nowplaying__queue">
           <div className="nowplaying__queueHead">
             <h2>Na fila</h2>
@@ -52,7 +81,11 @@ export function NowPlaying({ onClose }: { onClose: () => void }) {
                 key={`${item.id}-${position}`}
                 className={position === player.currentQueuePosition ? 'queue__item--current' : ''}
               >
-                <button type="button" className="queue__play" onClick={() => player.jumpTo(position)}>
+                <button
+                  type="button"
+                  className="queue__play"
+                  onClick={() => player.jumpTo(position)}
+                >
                   <Cover track={item} size={36} />
                   <span className="queue__info">
                     <span className="queue__title">{item.title}</span>
@@ -72,7 +105,26 @@ export function NowPlaying({ onClose }: { onClose: () => void }) {
             ))}
           </ol>
         </div>
-      ) : (
+      )}
+
+      {pane === 'letra' && (
+        <div className="nowplaying__lyrics">
+          {lyricsState?.status === 'carregando' && <p className="empty">Procurando a letra...</p>}
+          {lyrics && !lyrics.instrumental && lyrics.lines.length > 0 ? (
+            <SyncedLyrics lines={lyrics.lines} synced={lyrics.synced} offset={lyrics.offset} />
+          ) : (
+            lyricsState?.status !== 'carregando' && (
+              <p className="empty">
+                {lyrics?.instrumental
+                  ? 'Faixa instrumental.'
+                  : 'Sem letra guardada. Abra a aba Letra para procurar.'}
+              </p>
+            )
+          )}
+        </div>
+      )}
+
+      {pane === 'capa' && (
         <div className="nowplaying__art">
           <Cover track={track} size={300} className="cover--hero" />
         </div>
@@ -88,7 +140,7 @@ export function NowPlaying({ onClose }: { onClose: () => void }) {
           {(license || track.archiveId) && (
             <p className="nowplaying__license">
               {license}
-              {license && track.archiveId && ' · '}
+              {license && track.archiveId && ' - '}
               {track.archiveId && (
                 <a href={detailsUrlFor(track.archiveId)} target="_blank" rel="noreferrer noopener">
                   ver no acervo

@@ -173,6 +173,7 @@ export async function fetchAlbumTracks(
       license,
       remoteCoverUrl: album.coverUrl,
       hasCover: false,
+      hasLyrics: false,
       offline: false,
     }))
     .sort((a, b) => (a.trackNo ?? 9999) - (b.trackNo ?? 9999) || a.title.localeCompare(b.title));

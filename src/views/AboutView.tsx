@@ -3,7 +3,7 @@ import { estimateUsage, requestPersistence } from '../db';
 import { useLibrary } from '../library/LibraryContext';
 import { useToast } from '../components/Toast';
 import { formatBytes, plural } from '../lib/format';
-import { CheckIcon, DownloadIcon } from '../components/Icons';
+import { CheckIcon, ChevronDownIcon, DownloadIcon } from '../components/Icons';
 
 /** Evento do Chrome para instalacao do PWA; nao esta na tipagem padrao. */
 interface InstallPromptEvent extends Event {
@@ -11,7 +11,7 @@ interface InstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-export function AboutView() {
+export function AboutView({ onBack }: { onBack: () => void }) {
   const { tracks, playlists } = useLibrary();
   const notify = useToast();
 
@@ -56,7 +56,15 @@ export function AboutView() {
 
   return (
     <section className="view">
-      <header className="view__header">
+      <header className="view__header view__header--detail">
+        <button
+          type="button"
+          className="icon-button icon-button--back"
+          aria-label="Voltar para a biblioteca"
+          onClick={onBack}
+        >
+          <ChevronDownIcon width={24} height={24} />
+        </button>
         <div>
           <h1>Sobre o Music Fly</h1>
           <p className="view__subtitle">Um player que nao vende sua atencao.</p>

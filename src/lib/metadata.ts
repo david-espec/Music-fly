@@ -1,10 +1,45 @@
-import { parseBlob } from 'music-metadata';
-import type { Track } from '../types';
+import { parseBlob, type IAudioMetadata } from 'music-metadata';
+import type { LyricLine, Track } from '../types';
 import { uid } from './format';
+import { parsePlain } from './lrc';
+
+export interface EmbeddedLyrics {
+  lines: LyricLine[];
+  synced: boolean;
+}
 
 export interface ParsedFile {
   track: Track;
   cover: Blob | null;
+  lyrics: EmbeddedLyrics | null;
+}
+
+/** ID3v2 SYLT: timestamps em milissegundos. */
+const TIMESTAMP_MILLISECONDS = 2;
+
+/**
+ * Le a letra gravada dentro do arquivo. SYLT traz linhas com tempo; USLT traz
+ * apenas o texto corrido.
+ */
+function readEmbeddedLyrics(meta: IAudioMetadata): EmbeddedLyrics | null {
+  for (const tag of meta.common.lyrics ?? []) {
+    const synced = tag.syncText?.filter((entry) => entry.timestamp !== undefined) ?? [];
+    // So da para sincronizar quando os tempos estao em milissegundos; os outros
+    // formatos do ID3 contam quadros MPEG, que nao conseguimos converter aqui.
+    if (synced.length > 0 && tag.timeStampFormat === TIMESTAMP_MILLISECONDS) {
+      return {
+        lines: synced.map((entry) => ({
+          time: (entry.timestamp as number) / 1000,
+          text: entry.text.replace(/\r?\n/g, ' ').trim(),
+        })),
+        synced: true,
+      };
+    }
+    if (tag.text?.trim()) {
+      return { lines: parsePlain(tag.text), synced: false };
+    }
+  }
+  return null;
 }
 
 const AUDIO_EXTENSIONS = /\.(mp3|m4a|aac|flac|ogg|oga|opus|wav|wma|aiff?|webm)$/i;
@@ -75,10 +110,12 @@ export async function readLocalFile(file: File): Promise<ParsedFile> {
     mimeType: file.type || 'audio/mpeg',
     size: file.size,
     hasCover: false,
+    hasLyrics: false,
     offline: true,
   };
 
   let cover: Blob | null = null;
+  let lyrics: EmbeddedLyrics | null = null;
 
   try {
     const meta = await parseBlob(file, { duration: true });
@@ -98,11 +135,14 @@ export async function readLocalFile(file: File): Promise<ParsedFile> {
       });
       track.hasCover = true;
     }
+
+    lyrics = readEmbeddedLyrics(meta);
+    track.hasLyrics = lyrics !== null;
   } catch {
     // Formato sem tags ou corrompido: seguimos com os dados do nome do arquivo.
   }
 
   if (!track.duration) track.duration = await probeDuration(file);
 
-  return { track, cover };
+  return { track, cover, lyrics };
 }

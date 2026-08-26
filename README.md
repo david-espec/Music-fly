@@ -3,13 +3,19 @@
 Player de música que funciona no navegador e se instala como app no celular ou
 no computador. **Sem anúncios, sem rastreamento, sem cadastro.**
 
-Duas fontes de música, uma biblioteca só:
+Quatro abas, simples de usar:
 
-- **Sua biblioteca** — os arquivos que você mesmo adiciona (MP3, FLAC, M4A, OGG,
-  WAV…). Ficam guardados no próprio dispositivo e tocam sem internet.
+- **Início** — busca no topo, suas músicas logo abaixo.
+- **Biblioteca** — playlists, álbuns e artistas, montados a partir das tags dos
+  seus arquivos.
+- **Letra** — a letra da música que está tocando, acompanhando o áudio linha a
+  linha. Clique numa linha para pular para aquele trecho.
 - **Descobrir** — o acervo público de áudio do [Internet Archive](https://archive.org/details/audio),
   com gravações de domínio público e sob licenças Creative Commons. Dá para ouvir
   por streaming ou baixar para ouvir offline.
+
+Os arquivos que você adiciona (MP3, FLAC, M4A, OGG, WAV…) ficam guardados no
+próprio dispositivo e tocam sem internet.
 
 ## Como rodar
 
@@ -51,6 +57,7 @@ Instalado, ele abre em janela própria e funciona sem internet.
 | Reprodução | Fila, ordem aleatória, repetir uma/tudo, controle de posição e volume. |
 | Controles do sistema | Media Session API: título, artista e capa na tela de bloqueio, e os botões de mídia do fone e do teclado funcionam. |
 | Playlists | Criar, renomear, apagar, reordenar faixas. |
+| Letras sincronizadas | Três fontes, nesta ordem: a letra gravada dentro do arquivo (ID3 SYLT), um arquivo `.lrc` que você adicione, ou uma busca no [LRCLIB](https://lrclib.net). O que for encontrado fica guardado e funciona offline depois. |
 | Descobrir | Busca no acervo livre, streaming imediato e download para uso offline, com a licença de cada obra à vista. |
 | Offline | O app inteiro e as músicas baixadas ficam disponíveis sem rede. |
 
@@ -66,15 +73,38 @@ Instalado, ele abre em janela própria e funciona sem internet.
 | `s` | Ordem aleatória |
 | `r` | Modo de repetição |
 
+## Letras: como funciona a sincronia
+
+A aba **Letra** destaca a linha atual e rola sozinha junto com a música. O
+destaque é recalculado a cada quadro de animação lendo a posição real do áudio,
+não pelo evento `timeupdate` do navegador — que dispara umas 4 vezes por segundo
+e deixaria o destaque atrasado.
+
+De onde vem a letra, em ordem de preferência:
+
+1. **Gravada no arquivo.** MP3 com quadro ID3 `SYLT` já traz a letra com marcação
+   de tempo; é lida na importação, sem rede nenhuma.
+2. **Arquivo `.lrc`.** Adicione junto com as músicas (ou pelo botão *Arquivo .lrc*
+   na aba Letra). O casamento é pelo nome do arquivo: `Musica.lrc` vai para
+   `Musica.mp3`.
+3. **LRCLIB.** Acervo aberto de letras sincronizadas, sem chave de API e sem
+   cadastro. Use o botão *Procurar letra*.
+
+A precisão é a dos carimbos de tempo da fonte — **por linha**, que é o padrão do
+formato LRC e do LRCLIB, não por palavra. Se a letra estiver adiantada ou
+atrasada em relação à sua gravação, o rodapé da aba tem um ajuste de ±0,5s que
+fica salvo por música. Sem letra sincronizada disponível, o app mostra o texto
+corrido, sem destaque.
+
 ## Privacidade
 
 Não há anúncios, analytics, cookies de rastreamento nem contas de usuário.
 As músicas, playlists e preferências ficam no `IndexedDB` do seu navegador e
 nunca são enviadas a lugar nenhum.
 
-A **única** comunicação de rede que o app faz é com `archive.org`, e somente
-quando você usa a aba _Descobrir_. Se você nunca abrir essa aba, o app não fala
-com servidor nenhum depois de carregado.
+O app só fala com dois servidores, e apenas quando você pede: `archive.org` ao
+usar a aba _Descobrir_, e `lrclib.net` ao tocar em _Procurar letra_. Sem essas
+duas ações, ele não faz nenhuma requisição depois de carregado.
 
 Para evitar que o navegador descarte a biblioteca quando o espaço apertar, a aba
 _Sobre_ oferece ativar o armazenamento persistente.
@@ -90,12 +120,12 @@ principalmente se pretende redistribuir ou usar comercialmente.
 
 ```
 src/
-  db/            IndexedDB: faixas, áudio, capas, playlists, preferências
-  lib/           metadados (tags), cliente do Internet Archive, utilitários
+  db/            IndexedDB: faixas, áudio, capas, playlists, letras, preferências
+  lib/           tags, formato LRC, Internet Archive, LRCLIB, utilitários
   player/        motor de reprodução (contexto React + reducer da fila)
   library/       estado da biblioteca: importação, playlists, downloads
   components/    player, lista de faixas, menus, diálogos
-  views/         Biblioteca, Playlists, Descobrir, Sobre
+  views/         Início, Biblioteca, Letra, Descobrir, Sobre
 scripts/
   generate-icons.mjs   gera os ícones PWA (sem dependências externas)
 ```

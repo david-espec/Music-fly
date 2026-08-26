@@ -97,6 +97,22 @@ export const SearchIcon = (p: IconProps) => (
   </Icon>
 );
 
+export const HomeIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M3.5 10.4L12 3.8l8.5 6.6" />
+    <path d="M5.6 9v10.2a1 1 0 001 1h10.8a1 1 0 001-1V9" />
+    <path d="M9.8 20.2v-6h4.4v6" />
+  </Icon>
+);
+
+export const LyricsIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 5.5h11M4 10h11M4 14.5h7" />
+    <path d="M20 4v9.2" />
+    <ellipse cx="18" cy="15.4" rx="2.3" ry="2" fill="currentColor" stroke="none" />
+  </Icon>
+);
+
 export const LibraryIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M4 4.5h2.5v15H4zM9 4.5h2.5v15H9z" />

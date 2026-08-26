@@ -370,6 +370,10 @@ select {
   flex: 1;
 }
 
+.search--filter {
+  max-width: 360px;
+}
+
 .search input {
   flex: 1;
   min-width: 0;
@@ -1379,6 +1383,361 @@ select {
   border-color: color-mix(in srgb, var(--ok) 45%, var(--line));
 }
 
+
+/* --- Aba inicial: busca no topo, listagem embaixo ------------------------- */
+
+.view--home {
+  padding-top: 0;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 0;
+  margin-bottom: 4px;
+  background: linear-gradient(var(--bg) 78%, transparent);
+}
+
+.searchbar {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 46px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: var(--text-dim);
+}
+
+.searchbar:focus-within {
+  border-color: var(--accent);
+}
+
+.searchbar input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+  outline: none;
+}
+
+.searchbar input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.searchbar__clear {
+  display: flex;
+  border: 0;
+  padding: 4px;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.searchbar__clear:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+
+.listhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.listhead h1 {
+  font-size: 22px;
+  letter-spacing: -0.01em;
+}
+
+.listhead__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dropzone__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* --- Biblioteca: albuns e artistas ---------------------------------------- */
+
+.collections {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 14px;
+}
+
+.collections button {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 10px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.collections button:hover {
+  background: var(--bg-hover);
+}
+
+.collections .cover {
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 1;
+  margin-bottom: 4px;
+}
+
+.cover--round {
+  border-radius: 50%;
+}
+
+.collections__name {
+  font-weight: 600;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.collections__meta {
+  font-size: 12px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* --- Letra sincronizada --------------------------------------------------- */
+
+.view--lyrics {
+  height: 100%;
+  min-height: 0;
+}
+
+.lyrics__head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.lyrics__headInfo {
+  flex: 1;
+  min-width: 160px;
+}
+
+.lyrics__headInfo h1 {
+  font-size: 20px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lyrics__headInfo p {
+  margin: 2px 0 0;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+.lyrics__headActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.lyrics {
+  flex: 1;
+  width: 100%;
+  /* Linha de letra longa demais cansa a leitura; limitamos como um texto. */
+  max-width: 720px;
+  min-height: 240px;
+  max-height: 62vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12vh 4px;
+  scrollbar-width: none;
+}
+
+.lyrics::-webkit-scrollbar {
+  display: none;
+}
+
+.lyrics__line {
+  border: 0;
+  background: transparent;
+  padding: 7px 10px;
+  border-radius: 10px;
+  text-align: left;
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.18s ease, opacity 0.18s ease, transform 0.18s ease;
+}
+
+.lyrics__line:disabled {
+  cursor: default;
+}
+
+.lyrics--plain .lyrics__line {
+  color: var(--text);
+  font-weight: 500;
+  font-size: 16px;
+}
+
+.lyrics__line.is-past {
+  opacity: 0.38;
+}
+
+.lyrics__line.is-future {
+  opacity: 0.62;
+}
+
+.lyrics__line.is-active {
+  color: var(--text);
+  opacity: 1;
+  transform: scale(1.02);
+  transform-origin: left center;
+}
+
+.lyrics__line:not(:disabled):hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.lyrics__foot {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 0 24px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.lyrics__source {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: auto;
+}
+
+.lyrics__offset {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lyrics__offsetLabel {
+  color: var(--text-dim);
+}
+
+.lyrics__offsetValue {
+  min-width: 74px;
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text);
+  text-align: center;
+}
+
+.icon-button--small {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.placeholder {
+  margin: 8px 0;
+  padding: 44px 24px;
+  border: 1px dashed var(--line);
+  border-radius: 18px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-dim);
+}
+
+.placeholder h2 {
+  color: var(--text);
+  font-size: 18px;
+}
+
+.placeholder p {
+  margin: 0;
+  max-width: 48ch;
+}
+
+.placeholder code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--bg-hover);
+  font-size: 0.92em;
+}
+
+.nowplaying__panes {
+  display: flex;
+  gap: 2px;
+}
+
+.nowplaying__lyrics {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.nowplaying__lyrics .lyrics {
+  max-height: none;
+  padding: 6vh 4px;
+}
+
+.nowplaying__lyrics .lyrics__line {
+  font-size: 21px;
+}
+
 /* --- Celular ------------------------------------------------------------- */
 
 @media (max-width: 860px) {
@@ -1487,6 +1846,36 @@ select {
 
   .toolbar__play {
     margin-left: 0;
+  }
+
+  .topbar {
+    padding: 10px 0;
+  }
+
+  .topbar__add span {
+    display: none;
+  }
+
+  .topbar__add {
+    padding: 9px 12px;
+  }
+
+  .playerbar__lyrics {
+    display: none;
+  }
+
+  .lyrics {
+    max-height: none;
+    padding: 8vh 0;
+  }
+
+  .lyrics__line {
+    font-size: 18px;
+  }
+
+  .collections {
+    grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+    gap: 10px;
   }
 
   .card__stats {
