@@ -1,5 +1,7 @@
 # Music Fly
 
+**No ar em https://david-espec.github.io/Music-fly/**
+
 Player de música que funciona no navegador e se instala como app no celular ou
 no computador. **Sem anúncios, sem rastreamento, sem cadastro.**
 
@@ -40,19 +42,17 @@ relativos (`base: './'`), então funciona também em subdiretórios.
 
 ## Publicar no GitHub Pages
 
-O repositório já tem o workflow `.github/workflows/pages.yml`, que faz a build
-com o prefixo correto (`/Music-fly/`) e publica.
+O workflow `.github/workflows/pages.yml` faz a build com o prefixo correto
+(`/Music-fly/`) e publica a cada push no branch. Já está ativo.
 
-Antes da primeira publicação é preciso **ligar o Pages uma vez, na mão** — o
-token do GitHub Actions não tem permissão para criar o site sozinho:
+Se for reconfigurar do zero (num fork, por exemplo), é preciso **ligar o Pages
+uma vez, na mão** — o token do GitHub Actions não tem permissão para criar o
+site sozinho, e a execução falha com
+`Create Pages site failed: Resource not accessible by integration`:
 
-1. Vá em **Settings → Pages** do repositório.
+1. **Settings → Pages** do repositório.
 2. Em **Build and deployment → Source**, escolha **GitHub Actions**.
-3. Volte em **Actions → Publicar no GitHub Pages → Run workflow** (ou espere o
-   próximo push).
-
-O site fica em `https://david-espec.github.io/Music-fly/`. A partir daí, todo
-push no branch publica de novo sozinho.
+3. **Actions → Publicar no GitHub Pages → Run workflow**, ou dê um push.
 
 ## Instalar como app
 
