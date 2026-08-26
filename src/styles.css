@@ -1538,6 +1538,23 @@ mark {
   background: var(--bg-hover);
 }
 
+/* Indicador de busca em andamento, dentro da barra. */
+.spinner {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent-soft);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .listhead {
   display: flex;
   flex-wrap: wrap;

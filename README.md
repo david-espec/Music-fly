@@ -116,7 +116,15 @@ corrido, sem destaque.
 
 ## Como a busca funciona
 
-Digitou, apareceu — não há botão de buscar. As regras:
+Digitou, apareceu — não há botão de buscar em lugar nenhum.
+
+Na **Início** a lista se estreita a cada tecla, porque o filtro roda na memória.
+Na **Descobrir** cada busca é uma requisição ao acervo, então as teclas são
+agrupadas: o app espera 0,4 s de pausa antes de perguntar, e cancela a busca
+anterior se você continuar digitando. Digitar "bossa nova" gera uma requisição,
+não dez. Enter busca na hora, sem esperar.
+
+As regras de correspondência:
 
 - **Todos os termos precisam casar**, em qualquer ordem e em qualquer campo.
   `viva chico` encontra *Roda Viva* de Chico Buarque; `chico marisa` não

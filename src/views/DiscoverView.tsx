@@ -8,11 +8,19 @@ import { TrackList } from '../components/TrackList';
 import { plural } from '../lib/format';
 import {
   ChevronDownIcon,
+  CloseIcon,
   DownloadIcon,
   OfflineIcon,
   PlayIcon,
   SearchIcon,
 } from '../components/Icons';
+
+/**
+ * Espera entre a ultima tecla e a busca. Diferente da biblioteca, que filtra
+ * na memoria, aqui cada busca e uma requisicao ao acervo: disparar a cada
+ * tecla castigaria o servidor e ainda mostraria resultados de buscas velhas.
+ */
+const DEBOUNCE_MS = 400;
 
 export function DiscoverView() {
   const { saveArchiveTracks, downloadForOffline } = useLibrary();
@@ -34,6 +42,9 @@ export function DiscoverView() {
   const [albumLicense, setAlbumLicense] = useState<string | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
+  const debounceRef = useRef<number | undefined>(undefined);
+  /** A primeira carga nao espera; so as digitacoes seguintes. */
+  const firstRunRef = useRef(true);
   // Refs para o ouvinte de 'online', que e registrado uma unica vez.
   const runSearchRef = useRef<((term: string, page: number) => Promise<void>) | null>(null);
   const submittedRef = useRef('');
@@ -103,10 +114,18 @@ export function DiscoverView() {
     submittedRef.current = submitted;
   }, [submitted]);
 
-  // Carrega uma selecao inicial na primeira visita.
+  // Busca enquanto o usuario digita, agrupando as teclas em uma requisicao so.
   useEffect(() => {
-    void runSearch('', 1);
-  }, [runSearch]);
+    const delay = firstRunRef.current ? 0 : DEBOUNCE_MS;
+    firstRunRef.current = false;
+
+    debounceRef.current = window.setTimeout(() => {
+      setSubmitted(query);
+      void runSearch(query, 1);
+    }, delay);
+
+    return () => window.clearTimeout(debounceRef.current);
+  }, [query, runSearch]);
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
@@ -235,12 +254,15 @@ export function DiscoverView() {
         className="inline-form"
         onSubmit={(event) => {
           event.preventDefault();
+          // Enter nao espera o intervalo: busca agora e fecha o teclado.
+          window.clearTimeout(debounceRef.current);
           setSubmitted(query);
           void runSearch(query, 1);
+          (event.currentTarget.querySelector('input') as HTMLInputElement | null)?.blur();
         }}
       >
-        <label className="search search--grow">
-          <SearchIcon width={18} height={18} />
+        <label className="searchbar">
+          <SearchIcon width={20} height={20} />
           <input
             type="search"
             value={query}
@@ -248,10 +270,18 @@ export function DiscoverView() {
             aria-label="Buscar no acervo livre"
             onChange={(event) => setQuery(event.target.value)}
           />
+          {loading && <span className="spinner" aria-hidden="true" />}
+          {query && !loading && (
+            <button
+              type="button"
+              className="searchbar__clear"
+              aria-label="Limpar busca"
+              onClick={() => setQuery('')}
+            >
+              <CloseIcon width={16} height={16} />
+            </button>
+          )}
         </label>
-        <button type="submit" className="button button--accent" disabled={loading}>
-          Buscar
-        </button>
       </form>
 
       {error && <p className="empty empty--error">{error}</p>}
@@ -284,8 +314,6 @@ export function DiscoverView() {
           </ul>
         </>
       )}
-
-      {loading && <p className="empty">Buscando...</p>}
 
       {!loading && albums.length > 0 && albums.length < total && (
         <div className="view__more">
