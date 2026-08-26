@@ -21,6 +21,7 @@ export type QueueAction =
   | { type: 'setIndex'; index: number }
   | { type: 'setShuffle'; enabled: boolean }
   | { type: 'updateDuration'; id: string; duration: number }
+  | { type: 'replaceTrack'; track: Track }
   | { type: 'clear' };
 
 export const emptyQueue: QueueState = { queue: [], order: [], index: -1 };
@@ -120,6 +121,16 @@ export function queueReducer(state: QueueState, action: QueueAction): QueueState
         ...state,
         queue: state.queue.map((track) =>
           track.id === action.id ? { ...track, duration: action.duration } : track,
+        ),
+      };
+    }
+
+    case 'replaceTrack': {
+      if (!state.queue.some((track) => track.id === action.track.id)) return state;
+      return {
+        ...state,
+        queue: state.queue.map((track) =>
+          track.id === action.track.id ? action.track : track,
         ),
       };
     }

@@ -2,8 +2,11 @@
  * Barramento minimo de eventos. Evita dependencia circular entre o motor de
  * reproducao e o estado da biblioteca.
  */
+import type { Track } from '../types';
+
 type EventMap = {
   'track-removed': string;
+  'track-updated': Track;
   'duration-resolved': { id: string; duration: number };
   'track-played': string;
 };

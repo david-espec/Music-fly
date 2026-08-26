@@ -11,7 +11,7 @@ function hueFor(text: string): number {
 }
 
 interface CoverProps {
-  track: Pick<Track, 'id' | 'album' | 'title' | 'hasCover' | 'remoteCoverUrl'>;
+  track: Pick<Track, 'id' | 'album' | 'title' | 'hasCover' | 'remoteCoverUrl' | 'coverUpdatedAt'>;
   size?: number;
   className?: string;
 }
@@ -20,7 +20,7 @@ export function Cover({ track, size = 48, className = '' }: CoverProps) {
   const [src, setSrc] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
-  const { id, hasCover, remoteCoverUrl } = track;
+  const { id, hasCover, remoteCoverUrl, coverUpdatedAt } = track;
 
   useEffect(() => {
     let alive = true;
@@ -41,7 +41,7 @@ export function Cover({ track, size = 48, className = '' }: CoverProps) {
     return () => {
       alive = false;
     };
-  }, [id, hasCover, remoteCoverUrl]);
+  }, [id, hasCover, remoteCoverUrl, coverUpdatedAt]);
 
   const hue = hueFor(track.album || track.title || track.id);
   const style = {

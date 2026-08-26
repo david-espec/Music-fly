@@ -4,6 +4,7 @@ import { useLibrary } from '../library/LibraryContext';
 import { usePlayer } from '../player/PlayerContext';
 import { TrackList } from '../components/TrackList';
 import { Cover } from '../components/Cover';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import type { MenuItem } from '../components/Menu';
 import { formatDuration, normalize, plural } from '../lib/format';
 import {
@@ -82,6 +83,7 @@ export function LibraryView({ onOpenAbout }: { onOpenAbout: () => void }) {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [filter, setFilter] = useState('');
+  const [removingPlaylist, setRemovingPlaylist] = useState<string | null>(null);
 
   const byId = useMemo(() => new Map(tracks.map((track) => [track.id, track])), [tracks]);
   const albums = useMemo(() => groupBy(tracks, 'album'), [tracks]);
@@ -314,7 +316,7 @@ export function LibraryView({ onOpenAbout }: { onOpenAbout: () => void }) {
                       type="button"
                       className="icon-button icon-button--danger"
                       aria-label={`Apagar playlist ${playlist.name}`}
-                      onClick={() => void library.removePlaylist(playlist.id)}
+                      onClick={() => setRemovingPlaylist(playlist.id)}
                     >
                       <TrashIcon width={18} height={18} />
                     </button>
@@ -371,6 +373,25 @@ export function LibraryView({ onOpenAbout }: { onOpenAbout: () => void }) {
           )}
         </>
       )}
+
+      {removingPlaylist &&
+        (() => {
+          const playlist = playlists.find((item) => item.id === removingPlaylist);
+          if (!playlist) return null;
+          return (
+            <ConfirmDialog
+              title="Apagar playlist?"
+              message={`A playlist "${playlist.name}" sera apagada. As musicas continuam na sua biblioteca.`}
+              confirmLabel="Apagar"
+              danger
+              onConfirm={() => {
+                void library.removePlaylist(playlist.id);
+                setRemovingPlaylist(null);
+              }}
+              onCancel={() => setRemovingPlaylist(null)}
+            />
+          );
+        })()}
     </section>
   );
 }

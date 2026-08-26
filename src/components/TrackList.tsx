@@ -7,9 +7,12 @@ import { licenseLabel } from '../lib/archive';
 import { Cover } from './Cover';
 import { Menu, type MenuItem } from './Menu';
 import { PlaylistPicker } from './PlaylistPicker';
+import { EditTrackDialog } from './EditTrackDialog';
+import { ConfirmDialog } from './ConfirmDialog';
 import {
   CloudIcon,
   DownloadIcon,
+  EditIcon,
   OfflineIcon,
   PauseIcon,
   PlayIcon,
@@ -36,6 +39,8 @@ export function TrackList({
   const player = usePlayer();
   const library = useLibrary();
   const [pickerFor, setPickerFor] = useState<string[] | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<Track | null>(null);
 
   if (tracks.length === 0) {
     return <p className="empty">{emptyMessage}</p>;
@@ -80,6 +85,15 @@ export function TrackList({
             ...(extraActions?.(track, position) ?? []),
           ];
 
+          const inLibrary = library.tracks.some((item) => item.id === track.id);
+          if (inLibrary) {
+            actions.push({
+              label: 'Editar informacoes',
+              icon: <EditIcon width={16} height={16} />,
+              onSelect: () => setEditingId(track.id),
+            });
+          }
+
           if (track.source === 'acervo') {
             actions.push(
               track.offline
@@ -102,8 +116,8 @@ export function TrackList({
             label: 'Remover da biblioteca',
             icon: <TrashIcon width={16} height={16} />,
             danger: true,
-            disabled: !library.tracks.some((item) => item.id === track.id),
-            onSelect: () => void library.removeTrack(track.id),
+            disabled: !inLibrary,
+            onSelect: () => setRemoving(track),
           });
 
           return (
@@ -160,6 +174,28 @@ export function TrackList({
       </ol>
 
       {pickerFor && <PlaylistPicker trackIds={pickerFor} onClose={() => setPickerFor(null)} />}
+
+      {editingId && (
+        <EditTrackDialog trackId={editingId} onClose={() => setEditingId(null)} />
+      )}
+
+      {removing && (
+        <ConfirmDialog
+          title="Remover da biblioteca?"
+          message={
+            removing.source === 'local'
+              ? `"${removing.title}" sai da biblioteca e o arquivo guardado no aparelho e apagado. Nao da para desfazer; so adicionando o arquivo de novo.`
+              : `"${removing.title}" sai da biblioteca, junto com o download offline e a letra guardada. Nao da para desfazer.`
+          }
+          confirmLabel="Remover"
+          danger
+          onConfirm={() => {
+            void library.removeTrack(removing.id);
+            setRemoving(null);
+          }}
+          onCancel={() => setRemoving(null)}
+        />
+      )}
     </>
   );
 }

@@ -12,6 +12,7 @@ import type { Lyrics, Playlist, Track } from '../types';
 import {
   deletePlaylist as dbDeletePlaylist,
   deleteTrack as dbDeleteTrack,
+  deleteCoverBlob,
   deleteLyrics,
   getAllTracks,
   getLyrics,
@@ -22,6 +23,7 @@ import {
   putPlaylist,
   putTrack,
   removeAudioBlob,
+  revokeCachedUrl,
   saveTrackWithAssets,
 } from '../db';
 import { isAudioFile, readLocalFile } from '../lib/metadata';
@@ -36,6 +38,12 @@ export interface ImportProgress {
   total: number;
   currentName: string;
 }
+
+/** Campos que o usuario pode corrigir na tela de edicao. */
+export type EditableTrackFields = Pick<
+  Track,
+  'title' | 'artist' | 'album' | 'year' | 'trackNo'
+>;
 
 export type LyricsState =
   | { status: 'carregando' }
@@ -52,6 +60,10 @@ interface LibraryValue {
   downloading: Record<string, number>;
 
   importFiles: (files: File[]) => Promise<void>;
+  /** Corrige titulo, artista, album, ano e numero da faixa. */
+  updateTrack: (id: string, changes: EditableTrackFields) => Promise<void>;
+  /** Troca a capa por uma imagem escolhida, ou remove passando null. */
+  setTrackCover: (id: string, image: File | null) => Promise<void>;
   removeTrack: (id: string) => Promise<void>;
   saveArchiveTracks: (tracks: Track[]) => Promise<Track[]>;
   downloadForOffline: (track: Track) => Promise<void>;
@@ -261,6 +273,68 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       notify(parts.join(', ') || 'Nada a importar.', failed && !added.length ? 'erro' : 'sucesso');
     },
     [attachLrcByFilename, notify, tracks],
+  );
+
+  /** Grava a faixa alterada no banco, no estado e na fila que estiver tocando. */
+  const persistTrack = useCallback(async (track: Track) => {
+    await putTrack(track);
+    setTracks((current) => current.map((item) => (item.id === track.id ? track : item)));
+    emit('track-updated', track);
+  }, []);
+
+  const updateTrack = useCallback(
+    async (id: string, changes: EditableTrackFields) => {
+      const found = tracksRef.current.find((track: Track) => track.id === id);
+      if (!found) return;
+
+      const title = changes.title.trim();
+      if (!title) {
+        notify('O titulo nao pode ficar vazio.', 'erro');
+        return;
+      }
+
+      await persistTrack({
+        ...found,
+        title,
+        // Campos em branco voltam ao rotulo padrao, em vez de sumirem.
+        artist: changes.artist.trim() || 'Artista desconhecido',
+        album: changes.album.trim() || 'Album desconhecido',
+        year: changes.year,
+        trackNo: changes.trackNo,
+      });
+      notify('Informacoes salvas.', 'sucesso');
+    },
+    [notify, persistTrack],
+  );
+
+  const setTrackCover = useCallback(
+    async (id: string, image: File | null) => {
+      const found = tracksRef.current.find((track: Track) => track.id === id);
+      if (!found) return;
+
+      if (image) {
+        if (!image.type.startsWith('image/')) {
+          notify('Escolha um arquivo de imagem.', 'erro');
+          return;
+        }
+        await putCoverBlob(id, image);
+      } else {
+        await deleteCoverBlob(id);
+      }
+      // O object URL anterior fica em cache por id; sem invalidar, a interface
+      // continuaria mostrando a capa antiga.
+      revokeCachedUrl(id);
+
+      await persistTrack({
+        ...found,
+        hasCover: image !== null,
+        coverUpdatedAt: Date.now(),
+        // Uma capa propria tem prioridade sobre a do acervo.
+        remoteCoverUrl: image ? undefined : found.remoteCoverUrl,
+      });
+      notify(image ? 'Capa trocada.' : 'Capa removida.', 'sucesso');
+    },
+    [notify, persistTrack],
   );
 
   const removeTrack = useCallback(
@@ -594,6 +668,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       importProgress,
       downloading,
       importFiles,
+      updateTrack,
+      setTrackCover,
       removeTrack,
       saveArchiveTracks,
       downloadForOffline,
@@ -612,7 +688,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       removeLyrics,
     }),
     [
-      tracks, playlists, loading, importProgress, downloading, importFiles, removeTrack,
+      tracks, playlists, loading, importProgress, downloading, importFiles, updateTrack,
+      setTrackCover, removeTrack,
       saveArchiveTracks, downloadForOffline, removeOffline, createPlaylist, renamePlaylist,
       removePlaylist, addToPlaylist, removeFromPlaylist, movePlaylistTrack, lyricsFor,
       loadLyrics, searchLyricsOnline, attachLrcFile, setLyricsOffset, removeLyrics,

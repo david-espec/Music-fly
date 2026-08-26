@@ -30,6 +30,8 @@ export interface Track {
 
   /** Ha uma capa guardada no IndexedDB para esta faixa. */
   hasCover: boolean;
+  /** Quando a capa mudou. Invalida o cache de object URL na interface. */
+  coverUpdatedAt?: number;
   /** Ha letra guardada no IndexedDB para esta faixa. */
   hasLyrics: boolean;
   /** O audio esta guardado no IndexedDB e toca sem internet. */

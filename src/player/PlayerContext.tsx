@@ -333,6 +333,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => on('track-removed', (id) => dispatch({ type: 'removeById', id })), []);
 
+  useEffect(() => on('track-updated', (track) => dispatch({ type: 'replaceTrack', track })), []);
+
   // --- Acoes -----------------------------------------------------------------
 
   const playTracks = useCallback(

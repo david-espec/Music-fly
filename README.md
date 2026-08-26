@@ -72,6 +72,7 @@ Instalado, ele abre em janela própria e funciona sem internet.
 | Biblioteca local | Importa arquivos avulsos ou uma pasta inteira, lê tags ID3/Vorbis/MP4 (título, artista, álbum, ano, faixa) e a capa embutida. Busca, filtros e ordenação. |
 | Reprodução | Fila, ordem aleatória, repetir uma/tudo, controle de posição e volume. |
 | Controles do sistema | Media Session API: título, artista e capa na tela de bloqueio, e os botões de mídia do fone e do teclado funcionam. |
+| Editar faixas | Corrigir título, artista, álbum, ano e número da faixa, e trocar ou remover a capa. Útil quando o arquivo vem com tags erradas ou vazias — a Biblioteca reagrupa sozinha depois. |
 | Playlists | Criar, renomear, apagar, reordenar faixas. |
 | Letras sincronizadas | Três fontes, nesta ordem: a letra gravada dentro do arquivo (ID3 SYLT), um arquivo `.lrc` que você adicione, ou uma busca no [LRCLIB](https://lrclib.net). O que for encontrado fica guardado e funciona offline depois. |
 | Descobrir | Busca no acervo livre, streaming imediato e download para uso offline, com a licença de cada obra à vista. |
@@ -111,6 +112,13 @@ formato LRC e do LRCLIB, não por palavra. Se a letra estiver adiantada ou
 atrasada em relação à sua gravação, o rodapé da aba tem um ajuste de ±0,5s que
 fica salvo por música. Sem letra sincronizada disponível, o app mostra o texto
 corrido, sem destaque.
+
+## Apagar é definitivo
+
+Remover uma faixa apaga também o áudio guardado no aparelho, o download offline
+e a letra — não há lixeira nem desfazer. Por isso as duas ações destrutivas
+(apagar faixa e apagar playlist) pedem confirmação, com o foco começando em
+*Cancelar*. Apagar uma playlist não mexe nas músicas.
 
 ## Privacidade
 

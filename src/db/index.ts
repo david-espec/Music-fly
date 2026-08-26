@@ -124,6 +124,11 @@ export async function getCoverBlob(id: string): Promise<Blob | undefined> {
   return (await db()).get('covers', id);
 }
 
+export async function deleteCoverBlob(id: string): Promise<void> {
+  await (await db()).delete('covers', id);
+  revokeCachedUrl(id);
+}
+
 // --- Letras -----------------------------------------------------------------
 
 export async function getLyrics(trackId: string): Promise<Lyrics | undefined> {

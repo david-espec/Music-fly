@@ -148,6 +148,13 @@ export const PlusIcon = (p: IconProps) => (
   </Icon>
 );
 
+export const EditIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 20h4.2L19 9.2a2.1 2.1 0 00-3-3L5.2 17z" />
+    <path d="M14.6 6.8l2.6 2.6" />
+  </Icon>
+);
+
 export const TrashIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M4 6.5h16M9.5 6.5V4.2h5v2.3" />
