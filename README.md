@@ -56,14 +56,16 @@ site sozinho, e a execução falha com
 
 ## Instalar como app
 
-Depois de abrir o site:
+Há um botão **Baixar app** na barra superior da aba Início. Ele abre um aviso
+explicando o que a instalação faz, com **Cancelar** e **Confirmar**; confirmando,
+o app vira um ícone na tela inicial do aparelho.
 
-- **Android / Chrome / Edge:** menu do navegador → "Instalar app". A aba _Sobre_
-  também mostra um botão de instalação quando o navegador oferece.
-- **iPhone / Safari:** Compartilhar → "Adicionar à Tela de Início".
-- **Desktop:** ícone de instalação na barra de endereços.
+Onde o navegador não oferece instalação automática — iPhone sempre, e os demais
+quando o app já foi instalado antes — o Confirmar mostra o passo a passo daquele
+navegador em vez de falhar em silêncio.
 
-Instalado, ele abre em janela própria e funciona sem internet.
+O botão some sozinho depois de instalado. Instalado, o app abre em janela
+própria e funciona sem internet.
 
 ## O que ele faz
 

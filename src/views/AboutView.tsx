@@ -4,12 +4,8 @@ import { useLibrary } from '../library/LibraryContext';
 import { useToast } from '../components/Toast';
 import { formatBytes, plural } from '../lib/format';
 import { CheckIcon, ChevronDownIcon, DownloadIcon } from '../components/Icons';
-
-/** Evento do Chrome para instalacao do PWA; nao esta na tipagem padrao. */
-interface InstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-}
+import { useInstall } from '../install/InstallContext';
+import { InstallDialog } from '../install/InstallDialog';
 
 export function AboutView({ onBack }: { onBack: () => void }) {
   const { tracks, playlists } = useLibrary();
@@ -17,29 +13,13 @@ export function AboutView({ onBack }: { onBack: () => void }) {
 
   const [usage, setUsage] = useState<{ usage: number; quota: number } | null>(null);
   const [persisted, setPersisted] = useState<boolean | null>(null);
-  const [installEvent, setInstallEvent] = useState<InstallPromptEvent | null>(null);
+  const [showInstall, setShowInstall] = useState(false);
+  const { installed } = useInstall();
 
   useEffect(() => {
     void estimateUsage().then(setUsage);
     void navigator.storage?.persisted?.().then(setPersisted);
   }, [tracks.length]);
-
-  useEffect(() => {
-    const onPrompt = (event: Event) => {
-      event.preventDefault();
-      setInstallEvent(event as InstallPromptEvent);
-    };
-    window.addEventListener('beforeinstallprompt', onPrompt);
-    return () => window.removeEventListener('beforeinstallprompt', onPrompt);
-  }, []);
-
-  const install = async () => {
-    if (!installEvent) return;
-    await installEvent.prompt();
-    const { outcome } = await installEvent.userChoice;
-    if (outcome === 'accepted') notify('Music Fly instalado.', 'sucesso');
-    setInstallEvent(null);
-  };
 
   const enablePersistence = async () => {
     const granted = await requestPersistence();
@@ -138,16 +118,19 @@ export function AboutView({ onBack }: { onBack: () => void }) {
             funciona sem internet: as musicas locais e tudo que voce baixou da aba Descobrir tocam
             normalmente.
           </p>
-          {installEvent ? (
-            <button type="button" className="button button--accent" onClick={() => void install()}>
+          {installed ? (
+            <p className="card__note card__note--ok">
+              <CheckIcon width={14} height={14} /> Ja instalado neste aparelho.
+            </p>
+          ) : (
+            <button
+              type="button"
+              className="button button--accent"
+              onClick={() => setShowInstall(true)}
+            >
               <DownloadIcon width={16} height={16} />
               Instalar o app
             </button>
-          ) : (
-            <p className="card__note">
-              No Android/Chrome use o menu do navegador e escolha "Instalar app". No iPhone, use
-              Compartilhar e depois "Adicionar a Tela de Inicio".
-            </p>
           )}
         </article>
 
@@ -167,6 +150,8 @@ export function AboutView({ onBack }: { onBack: () => void }) {
           </p>
         </article>
       </div>
+
+      {showInstall && <InstallDialog onClose={() => setShowInstall(false)} />}
     </section>
   );
 }

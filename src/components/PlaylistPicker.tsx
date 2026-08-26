@@ -30,7 +30,9 @@ export function PlaylistPicker({ trackIds, onClose }: PlaylistPickerProps) {
 
   return (
     <div className="overlay" role="dialog" aria-modal="true" aria-label="Adicionar a playlist">
-      <button type="button" className="overlay__backdrop" aria-label="Fechar" onClick={onClose} />
+      {/* Fundo clicavel: atalho redundante com Esc e com o botao, entao fica
+          fora da arvore de acessibilidade para nao duplicar controles. */}
+      <div className="overlay__backdrop" aria-hidden="true" onClick={onClose} />
       <div className="dialog">
         <header className="dialog__header">
           <h2>Adicionar a playlist</h2>

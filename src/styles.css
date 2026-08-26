@@ -1434,6 +1434,81 @@ mark {
   flex: 1;
 }
 
+/* --- Instalar o app ------------------------------------------------------ */
+
+.dialog--install {
+  width: min(420px, 100%);
+  align-items: center;
+  text-align: center;
+}
+
+.install__badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 20px;
+  background: var(--bg-hover);
+  border: 1px solid var(--line);
+}
+
+.dialog--install h2 {
+  font-size: 20px;
+  letter-spacing: -0.01em;
+}
+
+.dialog--install .dialog__hint {
+  text-align: center;
+  max-width: 40ch;
+}
+
+.install__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  font-size: 14px;
+  text-align: left;
+}
+
+.install__list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+
+.install__list svg {
+  color: var(--ok);
+  flex: none;
+  margin-top: 3px;
+}
+
+.install__steps {
+  margin: 0;
+  padding-left: 22px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  font-size: 14px;
+  text-align: left;
+  color: var(--text);
+}
+
+.dialog--install .dialog__actions {
+  width: 100%;
+  justify-content: center;
+  padding-top: 4px;
+}
+
+.topbar__install {
+  flex: none;
+}
+
 /* --- Avisos -------------------------------------------------------------- */
 
 .toasts {
@@ -2089,11 +2164,13 @@ mark {
     padding: 10px 0;
   }
 
-  .topbar__add span {
+  .topbar__add span,
+  .topbar__install span {
     display: none;
   }
 
-  .topbar__add {
+  .topbar__add,
+  .topbar__install {
     padding: 9px 12px;
   }
 

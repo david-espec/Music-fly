@@ -33,7 +33,9 @@ export function ConfirmDialog({
 
   return (
     <div className="overlay" role="alertdialog" aria-modal="true" aria-label={title}>
-      <button type="button" className="overlay__backdrop" aria-label="Cancelar" onClick={onCancel} />
+      {/* Fundo clicavel: atalho redundante com Esc e com o botao, entao fica
+          fora da arvore de acessibilidade para nao duplicar controles. */}
+      <div className="overlay__backdrop" aria-hidden="true" onClick={onCancel} />
       <div className="dialog dialog--narrow">
         <h2>{title}</h2>
         <p className="dialog__hint">{message}</p>

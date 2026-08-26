@@ -6,7 +6,16 @@ import { TrackList } from '../components/TrackList';
 import { CardRow, type Card } from '../components/CardRow';
 import { formatDuration, plural } from '../lib/format';
 import { searchGroups, searchTracks, terms } from '../lib/search';
-import { CloseIcon, FolderIcon, PlayIcon, SearchIcon, ShuffleIcon } from '../components/Icons';
+import {
+  CloseIcon,
+  DownloadIcon,
+  FolderIcon,
+  PlayIcon,
+  SearchIcon,
+  ShuffleIcon,
+} from '../components/Icons';
+import { useInstall } from '../install/InstallContext';
+import { InstallDialog } from '../install/InstallDialog';
 
 type SortKey = 'recentes' | 'titulo' | 'artista' | 'album';
 
@@ -27,6 +36,8 @@ export function HomeView() {
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortKey>('recentes');
   const [dragging, setDragging] = useState(false);
+  const [showInstall, setShowInstall] = useState(false);
+  const { installed } = useInstall();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
@@ -196,13 +207,31 @@ export function HomeView() {
 
         <button
           type="button"
-          className="button button--accent topbar__add"
+          className="button topbar__add"
+          // No celular o rotulo e escondido por CSS; sem isto o botao ficaria
+          // sem nome nenhum para leitores de tela.
+          aria-label="Adicionar musicas"
           onClick={() => fileInputRef.current?.click()}
         >
           <FolderIcon width={18} height={18} />
           <span>Adicionar</span>
         </button>
+
+        {/* Some depois de instalado: nao ha o que baixar de novo. */}
+        {!installed && (
+          <button
+            type="button"
+            className="button button--accent topbar__install"
+            aria-label="Baixar app"
+            onClick={() => setShowInstall(true)}
+          >
+            <DownloadIcon width={18} height={18} />
+            <span>Baixar app</span>
+          </button>
+        )}
       </div>
+
+      {showInstall && <InstallDialog onClose={() => setShowInstall(false)} />}
 
       <input
         ref={fileInputRef}
