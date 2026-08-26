@@ -38,6 +38,22 @@ relativos (`base: './'`), então funciona também em subdiretórios.
 > O service worker só é registrado na build de produção. Para testar o modo
 > offline, use `npm run build && npm run preview`, não o `npm run dev`.
 
+## Publicar no GitHub Pages
+
+O repositório já tem o workflow `.github/workflows/pages.yml`, que faz a build
+com o prefixo correto (`/Music-fly/`) e publica.
+
+Antes da primeira publicação é preciso **ligar o Pages uma vez, na mão** — o
+token do GitHub Actions não tem permissão para criar o site sozinho:
+
+1. Vá em **Settings → Pages** do repositório.
+2. Em **Build and deployment → Source**, escolha **GitHub Actions**.
+3. Volte em **Actions → Publicar no GitHub Pages → Run workflow** (ou espere o
+   próximo push).
+
+O site fica em `https://david-espec.github.io/Music-fly/`. A partir daí, todo
+push no branch publica de novo sozinho.
+
 ## Instalar como app
 
 Depois de abrir o site:
