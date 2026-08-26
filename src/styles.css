@@ -1505,6 +1505,17 @@ select {
   background: var(--bg-hover);
 }
 
+/*
+ * O componente Cover recebe tamanho fixo em linha. Onde ele vive dentro de um
+ * cartao de largura fluida, precisa seguir o container: sem isto a capa
+ * transborda e o titulo do cartao cai por cima dela.
+ */
+.cover--fill {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Na grade, a altura vem da proporcao, nao do container. */
 .collections .cover {
   width: 100% !important;
   height: auto !important;
@@ -1738,6 +1749,126 @@ select {
   font-size: 21px;
 }
 
+
+/* --- Faixas horizontais de capas (home) ---------------------------------- */
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.row__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.row__head h2 {
+  font-size: 19px;
+  letter-spacing: -0.01em;
+}
+
+.row__scroller {
+  list-style: none;
+  margin: 0;
+  /* O padrao rola na horizontal aqui dentro; a pagina nunca rola de lado. */
+  padding: 0 0 6px;
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x proximate;
+  scrollbar-width: thin;
+}
+
+.row__scroller li {
+  flex: none;
+  width: 148px;
+  scroll-snap-align: start;
+}
+
+.row__scroller button {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.row__art {
+  position: relative;
+  display: block;
+  width: 148px;
+  height: 148px;
+  margin-bottom: 6px;
+}
+
+.row__play {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.row__scroller button:hover .row__play,
+.row__scroller button:focus-visible .row__play {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.row__title {
+  font-weight: 600;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.row__subtitle {
+  font-size: 12px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.listhead__title {
+  font-size: 19px;
+  letter-spacing: -0.01em;
+}
+
+.dropzone__hint {
+  margin-top: 4px !important;
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.dropzone code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--bg-hover);
+  font-size: 0.92em;
+}
+
 /* --- Celular ------------------------------------------------------------- */
 
 @media (max-width: 860px) {
@@ -1876,6 +2007,40 @@ select {
   .collections {
     grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
     gap: 10px;
+  }
+
+  .row__scroller li,
+  .row__art {
+    width: 132px;
+  }
+
+  .row__art {
+    height: 132px;
+  }
+
+  /* Sem hover no toque: o botao de tocar fica sempre a mostra. */
+  .row__play {
+    opacity: 1;
+    transform: none;
+    width: 34px;
+    height: 34px;
+  }
+
+  .row__head h2,
+  .listhead__title {
+    font-size: 17px;
+  }
+
+  /* Tocar, Aleatorio e a ordenacao cabem numa linha so quando compactados. */
+  .listhead__actions .button {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .listhead__actions .select select {
+    height: 36px;
+    padding: 0 8px;
+    font-size: 13px;
   }
 
   .card__stats {

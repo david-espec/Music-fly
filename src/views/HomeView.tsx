@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import type { Track } from '../types';
 import { useLibrary } from '../library/LibraryContext';
 import { usePlayer } from '../player/PlayerContext';
 import { TrackList } from '../components/TrackList';
+import { CardRow, type Card } from '../components/CardRow';
 import { formatDuration, normalize, plural } from '../lib/format';
 import { CloseIcon, FolderIcon, PlayIcon, SearchIcon, ShuffleIcon } from '../components/Icons';
 
@@ -13,6 +15,9 @@ const SORTS: { key: SortKey; label: string }[] = [
   { key: 'artista', label: 'Artista' },
   { key: 'album', label: 'Album' },
 ];
+
+/** Quantos cartoes cabem numa faixa horizontal antes de virar excesso. */
+const ROW_LIMIT = 12;
 
 export function HomeView() {
   const { tracks, loading, importFiles, importProgress } = useLibrary();
@@ -29,6 +34,8 @@ export function HomeView() {
   useEffect(() => {
     folderInputRef.current?.setAttribute('webkitdirectory', '');
   }, []);
+
+  const searching = query.trim().length > 0;
 
   const visible = useMemo(() => {
     const needle = normalize(query.trim());
@@ -68,6 +75,57 @@ export function HomeView() {
     }
     return sorted;
   }, [query, sort, tracks]);
+
+  /** Ultimas faixas ouvidas, da mais recente para a mais antiga. */
+  const recentlyPlayed = useMemo<Card[]>(
+    () =>
+      tracks
+        .filter((track) => track.lastPlayedAt)
+        .sort((a, b) => (b.lastPlayedAt ?? 0) - (a.lastPlayedAt ?? 0))
+        .slice(0, ROW_LIMIT)
+        .map((track) => ({
+          key: track.id,
+          title: track.title,
+          subtitle: track.artist,
+          cover: track,
+          // Continua dali com o resto do historico na fila.
+          onPlay: () => player.playTracks([track], 0),
+        })),
+    [player, tracks],
+  );
+
+  /** Albuns adicionados por ultimo, um cartao por album. */
+  const recentAlbums = useMemo<Card[]>(() => {
+    const groups = new Map<string, Track[]>();
+    for (const track of tracks) {
+      const key = `${track.album} ${track.artist}`;
+      const list = groups.get(key);
+      if (list) list.push(track);
+      else groups.set(key, [track]);
+    }
+
+    return [...groups.entries()]
+      .map(([key, list]) => {
+        const ordered = [...list].sort(
+          (a, b) =>
+            (a.trackNo ?? 9999) - (b.trackNo ?? 9999) || a.title.localeCompare(b.title, 'pt-BR'),
+        );
+        return {
+          key,
+          addedAt: Math.max(...list.map((track) => track.addedAt)),
+          tracks: ordered,
+        };
+      })
+      .sort((a, b) => b.addedAt - a.addedAt)
+      .slice(0, ROW_LIMIT)
+      .map(({ key, tracks: albumTracks }) => ({
+        key,
+        title: albumTracks[0].album,
+        subtitle: `${albumTracks[0].artist} - ${plural(albumTracks.length, 'musica', 'musicas')}`,
+        cover: albumTracks[0],
+        onPlay: () => player.playTracks(albumTracks, 0),
+      }));
+  }, [player, tracks]);
 
   const totalDuration = useMemo(
     () => tracks.reduce((total, track) => total + track.duration, 0),
@@ -173,10 +231,10 @@ export function HomeView() {
       {tracks.length === 0 && !loading ? (
         <div className="dropzone">
           <FolderIcon width={40} height={40} />
-          <h2>Arraste suas musicas para ca</h2>
+          <h2>Comece adicionando suas musicas</h2>
           <p>
-            Os arquivos ficam guardados no seu proprio dispositivo. Nada e enviado para nenhum
-            servidor, e tudo continua tocando sem internet.
+            Escolha arquivos do aparelho ou arraste-os para ca. Eles ficam guardados no seu proprio
+            dispositivo, nada e enviado para nenhum servidor, e tudo continua tocando sem internet.
           </p>
           <div className="dropzone__actions">
             <button
@@ -194,18 +252,30 @@ export function HomeView() {
               Pasta inteira
             </button>
           </div>
+          <p className="dropzone__hint">
+            Formatos aceitos: MP3, FLAC, M4A, OGG, WAV. Arquivos <code>.lrc</code> na mesma selecao
+            viram a letra sincronizada das musicas de mesmo nome.
+          </p>
         </div>
       ) : (
         <>
+          {/* Durante a busca as secoes saem da frente: so os resultados importam. */}
+          {!searching && (
+            <>
+              <CardRow title="Continuar ouvindo" cards={recentlyPlayed} />
+              <CardRow title="Adicionadas recentemente" cards={recentAlbums} />
+            </>
+          )}
+
           <div className="listhead">
             <div>
-              <h1>{query ? 'Resultados' : 'Suas musicas'}</h1>
+              <h2 className="listhead__title">{searching ? 'Resultados' : 'Todas as musicas'}</h2>
               <p className="view__subtitle">
                 {loading
                   ? 'Abrindo...'
-                  : query
+                  : searching
                     ? plural(visible.length, 'resultado', 'resultados')
-                    : `${plural(tracks.length, 'musica', 'musicas')} · ${formatDuration(totalDuration)}`}
+                    : `${plural(tracks.length, 'musica', 'musicas')} - ${formatDuration(totalDuration)}`}
               </p>
             </div>
 
@@ -244,7 +314,7 @@ export function HomeView() {
           <TrackList
             tracks={visible}
             emptyMessage={
-              query ? `Nada encontrado para "${query}".` : 'Nenhuma musica na biblioteca ainda.'
+              searching ? `Nada encontrado para "${query}".` : 'Nenhuma musica na biblioteca ainda.'
             }
           />
         </>

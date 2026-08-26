@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { formatDuration } from '../lib/format';
+import { formatDuration, formatPosition } from '../lib/format';
 
 interface SeekBarProps {
   currentTime: number;
@@ -31,7 +31,7 @@ export function SeekBar({ currentTime, duration, onSeek, showTimes = true }: See
 
   return (
     <div className="seek">
-      {showTimes && <span className="seek__time">{formatDuration(value)}</span>}
+      {showTimes && <span className="seek__time">{formatPosition(value)}</span>}
       <div className="seek__track" style={{ ['--seek-progress' as string]: `${percent}%` }}>
         <input
           type="range"

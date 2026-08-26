@@ -8,6 +8,14 @@ export function formatDuration(seconds: number): string {
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 }
 
+/**
+ * Posicao dentro da musica. Diferente da duracao, zero e um valor legitimo
+ * (inicio da faixa) e nao "desconhecido".
+ */
+export function formatPosition(seconds: number): string {
+  return Number.isFinite(seconds) && seconds > 0 ? formatDuration(seconds) : '0:00';
+}
+
 export function formatBytes(bytes: number): string {
   if (!bytes) return '0 B';
   const units = ['B', 'KB', 'MB', 'GB'];

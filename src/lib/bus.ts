@@ -5,6 +5,7 @@
 type EventMap = {
   'track-removed': string;
   'duration-resolved': { id: string; duration: number };
+  'track-played': string;
 };
 
 type Handler<K extends keyof EventMap> = (payload: EventMap[K]) => void;

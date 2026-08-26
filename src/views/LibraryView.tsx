@@ -360,7 +360,7 @@ export function LibraryView({ onOpenAbout }: { onOpenAbout: () => void }) {
                     <Cover
                       track={item.tracks[0]}
                       size={132}
-                      className={section === 'artistas' ? 'cover--round' : ''}
+                      className={`cover--fill ${section === 'artistas' ? 'cover--round' : ''}`}
                     />
                     <span className="collections__name">{item.name}</span>
                     <span className="collections__meta">{item.subtitle}</span>

@@ -64,6 +64,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const loadTokenRef = useRef(0);
   /** Se a proxima troca de faixa deve comecar tocando. */
   const shouldPlayRef = useRef(false);
+  /** Ultima faixa ja contabilizada no historico; evita recontar ao despausar. */
+  const playedRef = useRef<string | null>(null);
 
   const [state, dispatch] = useReducer(queueReducer, emptyQueue);
   const { queue, order, index } = state;
@@ -261,7 +263,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const audio = audioRef.current;
     if (!audio) return;
 
-    const onPlay = () => setIsPlaying(true);
+    const onPlay = () => {
+      setIsPlaying(true);
+      if (currentId && playedRef.current !== currentId) {
+        playedRef.current = currentId;
+        emit('track-played', currentId);
+      }
+    };
     const onPause = () => setIsPlaying(false);
     const onWaiting = () => setIsLoading(true);
     const onPlaying = () => setIsLoading(false);

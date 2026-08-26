@@ -14,6 +14,8 @@ export interface Track {
   year?: number;
   trackNo?: number;
   addedAt: number;
+  /** Quando esta faixa comecou a tocar pela ultima vez. */
+  lastPlayedAt?: number;
 
   // --- Somente faixas locais ---
   fileName?: string;

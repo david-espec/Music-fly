@@ -118,6 +118,19 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     })();
   }, [notify]);
 
+  // Historico de reproducao, usado pela secao "Continuar ouvindo".
+  useEffect(
+    () =>
+      on('track-played', (id) => {
+        const found = tracksRef.current.find((track: Track) => track.id === id);
+        if (!found) return;
+        const played: Track = { ...found, lastPlayedAt: Date.now() };
+        void putTrack(played);
+        setTracks((current) => current.map((track) => (track.id === id ? played : track)));
+      }),
+    [],
+  );
+
   // A duracao real so aparece quando a faixa toca; guardamos para a proxima vez.
   useEffect(
     () =>
