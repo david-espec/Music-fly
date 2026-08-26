@@ -69,7 +69,8 @@ Instalado, ele abre em janela própria e funciona sem internet.
 
 | | |
 |---|---|
-| Biblioteca local | Importa arquivos avulsos ou uma pasta inteira, lê tags ID3/Vorbis/MP4 (título, artista, álbum, ano, faixa) e a capa embutida. Busca, filtros e ordenação. |
+| Biblioteca local | Importa arquivos avulsos ou uma pasta inteira, lê tags ID3/Vorbis/MP4 (título, artista, álbum, ano, faixa) e a capa embutida. |
+| Busca | Resultados enquanto você digita, ordenados por relevância. Os termos podem vir em qualquer ordem, acentos não atrapalham, e o trecho que casou fica destacado. Artistas e álbuns aparecem como resultado próprio. |
 | Reprodução | Fila, ordem aleatória, repetir uma/tudo, controle de posição e volume. |
 | Controles do sistema | Media Session API: título, artista e capa na tela de bloqueio, e os botões de mídia do fone e do teclado funcionam. |
 | Editar faixas | Corrigir título, artista, álbum, ano e número da faixa, e trocar ou remover a capa. Útil quando o arquivo vem com tags erradas ou vazias — a Biblioteca reagrupa sozinha depois. |
@@ -112,6 +113,22 @@ formato LRC e do LRCLIB, não por palavra. Se a letra estiver adiantada ou
 atrasada em relação à sua gravação, o rodapé da aba tem um ajuste de ±0,5s que
 fica salvo por música. Sem letra sincronizada disponível, o app mostra o texto
 corrido, sem destaque.
+
+## Como a busca funciona
+
+Digitou, apareceu — não há botão de buscar. As regras:
+
+- **Todos os termos precisam casar**, em qualquer ordem e em qualquer campo.
+  `viva chico` encontra *Roda Viva* de Chico Buarque; `chico marisa` não
+  encontra nada, porque nenhuma faixa satisfaz os dois.
+- **Acentos são ignorados nos dois sentidos.** `construção` acha `Construcao`
+  e vice-versa.
+- **Ordenado por relevância**: título exato primeiro, depois começo de título,
+  depois começo de palavra, depois qualquer trecho. Título pesa mais que
+  artista, que pesa mais que álbum.
+- **O trecho que casou fica destacado** no título e na linha de artista/álbum.
+- Além das músicas, artistas e álbuns cujo nome casa aparecem em seções
+  próprias — dá para tocar o artista ou o álbum inteiro direto dali.
 
 ## Apagar é definitivo
 

@@ -7,6 +7,7 @@ import { licenseLabel } from '../lib/archive';
 import { Cover } from './Cover';
 import { Menu, type MenuItem } from './Menu';
 import { PlaylistPicker } from './PlaylistPicker';
+import { Highlight } from './Highlight';
 import { EditTrackDialog } from './EditTrackDialog';
 import { ConfirmDialog } from './ConfirmDialog';
 import {
@@ -27,6 +28,8 @@ interface TrackListProps {
   extraActions?: (track: Track, position: number) => MenuItem[];
   /** Faixas do acervo ainda nao salvas precisam entrar na biblioteca antes. */
   onBeforePlay?: (tracks: Track[]) => Promise<Track[]>;
+  /** Termos da busca, para destacar o trecho que casou. */
+  highlight?: string[];
   emptyMessage?: string;
 }
 
@@ -34,6 +37,7 @@ export function TrackList({
   tracks,
   extraActions,
   onBeforePlay,
+  highlight = [],
   emptyMessage = 'Nada por aqui ainda.',
 }: TrackListProps) {
   const player = usePlayer();
@@ -141,10 +145,17 @@ export function TrackList({
               </button>
 
               <div className="track__info">
-                <span className="track__title">{track.title}</span>
+                <span className="track__title">
+                  <Highlight text={track.title} terms={highlight} />
+                </span>
                 <span className="track__meta">
-                  {track.artist}
-                  {track.album && track.album !== 'Album desconhecido' && ` · ${track.album}`}
+                  <Highlight text={track.artist} terms={highlight} />
+                  {track.album && track.album !== 'Album desconhecido' && (
+                    <>
+                      {' · '}
+                      <Highlight text={track.album} terms={highlight} />
+                    </>
+                  )}
                 </span>
                 {(license || (track.source === 'acervo' && !track.offline)) && (
                   <span className="track__badges">

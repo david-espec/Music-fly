@@ -4,7 +4,8 @@ import { useLibrary } from '../library/LibraryContext';
 import { usePlayer } from '../player/PlayerContext';
 import { TrackList } from '../components/TrackList';
 import { CardRow, type Card } from '../components/CardRow';
-import { formatDuration, normalize, plural } from '../lib/format';
+import { formatDuration, plural } from '../lib/format';
+import { searchGroups, searchTracks, terms } from '../lib/search';
 import { CloseIcon, FolderIcon, PlayIcon, SearchIcon, ShuffleIcon } from '../components/Icons';
 
 type SortKey = 'recentes' | 'titulo' | 'artista' | 'album';
@@ -35,17 +36,27 @@ export function HomeView() {
     folderInputRef.current?.setAttribute('webkitdirectory', '');
   }, []);
 
-  const searching = query.trim().length > 0;
+  /** Termos da busca, usados no ranking e no realce. */
+  const queryTerms = useMemo(() => terms(query), [query]);
+  const searching = queryTerms.length > 0;
+
+  /** Artistas e albuns cujo nome casa com a busca. */
+  const artistHits = useMemo(
+    () => (searching ? searchGroups(tracks, query, 'artist').slice(0, ROW_LIMIT) : []),
+    [query, searching, tracks],
+  );
+  const albumHits = useMemo(
+    () => (searching ? searchGroups(tracks, query, 'album').slice(0, ROW_LIMIT) : []),
+    [query, searching, tracks],
+  );
 
   const visible = useMemo(() => {
-    const needle = normalize(query.trim());
-    const filtered = needle
-      ? tracks.filter((track) =>
-          normalize(`${track.title} ${track.artist} ${track.album}`).includes(needle),
-        )
-      : tracks;
+    // Com busca ativa, quem manda e a relevancia, nao a ordenacao escolhida.
+    if (searching) {
+      return searchTracks(tracks, query).map((hit) => hit.track);
+    }
 
-    const sorted = [...filtered];
+    const sorted = [...tracks];
     switch (sort) {
       case 'titulo':
         sorted.sort((a, b) => a.title.localeCompare(b.title, 'pt-BR'));
@@ -74,7 +85,7 @@ export function HomeView() {
         );
     }
     return sorted;
-  }, [query, sort, tracks]);
+  }, [query, searching, sort, tracks]);
 
   /** Ultimas faixas ouvidas, da mais recente para a mais antiga. */
   const recentlyPlayed = useMemo<Card[]>(
@@ -259,7 +270,7 @@ export function HomeView() {
         </div>
       ) : (
         <>
-          {/* Durante a busca as secoes saem da frente: so os resultados importam. */}
+          {/* Durante a busca as secoes de descoberta saem da frente. */}
           {!searching && (
             <>
               <CardRow title="Continuar ouvindo" cards={recentlyPlayed} />
@@ -269,12 +280,12 @@ export function HomeView() {
 
           <div className="listhead">
             <div>
-              <h2 className="listhead__title">{searching ? 'Resultados' : 'Todas as musicas'}</h2>
+              <h2 className="listhead__title">{searching ? 'Musicas' : 'Todas as musicas'}</h2>
               <p className="view__subtitle">
                 {loading
                   ? 'Abrindo...'
                   : searching
-                    ? plural(visible.length, 'resultado', 'resultados')
+                    ? `${plural(visible.length, 'resultado', 'resultados')} para "${query.trim()}"`
                     : `${plural(tracks.length, 'musica', 'musicas')} - ${formatDuration(totalDuration)}`}
               </p>
             </div>
@@ -298,25 +309,63 @@ export function HomeView() {
                 <ShuffleIcon width={16} height={16} />
                 Aleatorio
               </button>
-              <label className="select">
-                <span className="visually-hidden">Ordenar por</span>
-                <select value={sort} onChange={(event) => setSort(event.target.value as SortKey)}>
-                  {SORTS.map((option) => (
-                    <option key={option.key} value={option.key}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {!searching && (
+                <label className="select">
+                  <span className="visually-hidden">Ordenar por</span>
+                  <select value={sort} onChange={(event) => setSort(event.target.value as SortKey)}>
+                    {SORTS.map((option) => (
+                      <option key={option.key} value={option.key}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
             </div>
           </div>
 
           <TrackList
             tracks={visible}
+            highlight={queryTerms}
             emptyMessage={
-              searching ? `Nada encontrado para "${query}".` : 'Nenhuma musica na biblioteca ainda.'
+              searching
+                ? `Nenhuma musica com "${query.trim()}".`
+                : 'Nenhuma musica na biblioteca ainda.'
             }
           />
+
+          {/* Artistas e albuns cujo nome casa, mesmo sem musica correspondente. */}
+          {searching && (
+            <>
+              <CardRow
+                title="Artistas"
+                round
+                cards={artistHits.map((hit) => ({
+                  key: hit.key,
+                  title: hit.name,
+                  subtitle: plural(hit.tracks.length, 'musica', 'musicas'),
+                  cover: hit.tracks[0],
+                  onPlay: () => player.playTracks(hit.tracks, 0),
+                }))}
+              />
+              <CardRow
+                title="Albuns"
+                cards={albumHits.map((hit) => ({
+                  key: hit.key,
+                  title: hit.name,
+                  subtitle: `${hit.tracks[0].artist} - ${plural(hit.tracks.length, 'musica', 'musicas')}`,
+                  cover: hit.tracks[0],
+                  onPlay: () => player.playTracks(hit.tracks, 0),
+                }))}
+              />
+
+              {visible.length === 0 && artistHits.length === 0 && albumHits.length === 0 && (
+                <p className="empty">
+                  Nada encontrado para "{query.trim()}". Tente outra palavra, ou parte dela.
+                </p>
+              )}
+            </>
+          )}
         </>
       )}
     </section>

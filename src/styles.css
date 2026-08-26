@@ -516,6 +516,14 @@ select {
   color: var(--text-dim);
 }
 
+/* Trecho que casou com a busca. */
+mark {
+  background: color-mix(in srgb, var(--accent) 36%, transparent);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
 .track__badges {
   display: flex;
   gap: 6px;
