@@ -1,20 +1,60 @@
+/*
+ * Bangers da a voz de quadrinho aos titulos, Plus Jakarta Sans e o texto, e
+ * JetBrains Mono os rotulos pequenos. O import vive aqui, e nao num <link> no
+ * index.html, porque a build descarta folhas externas declaradas por link.
+ * O service worker guarda as fontes na primeira visita; ate la, e sempre que
+ * faltar rede, valem as pilhas de reserva declaradas nos tokens abaixo.
+ */
+@import url('https://fonts.googleapis.com/css2?family=Bangers&family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
 /* ==========================================================================
    Music Fly - folha de estilo unica.
    Layout: barra lateral no desktop, barra inferior no celular, player fixo.
    ========================================================================== */
 
 :root {
-  --bg: #0b0b10;
-  --bg-elevated: #14141c;
-  --bg-hover: #1c1c27;
-  --line: #262633;
-  --text: #f2f2f7;
-  --text-dim: #9a9aad;
-  --accent: #8b5cf6;
-  --accent-soft: #a78bfa;
-  --cyan: #22d3ee;
-  --danger: #f87171;
-  --ok: #4ade80;
+  /* Paleta Material 3 escura vinda do design de quadrinho. */
+  --bg: #131315;
+  --bg-elevated: #201f21;
+  --bg-hover: #2a2a2c;
+  --line: #494454;
+  --text: #e5e1e4;
+  --text-dim: #cbc3d7;
+
+  /*
+   * O roxo do design e CLARO. Por isso existe --on-accent: texto branco sobre
+   * ele seria ilegivel; o contraste vem do roxo escuro.
+   */
+  --accent: #d0bcff;
+  --accent-soft: #a078ff;
+  --on-accent: #3c0091;
+
+  /* Cor do relevo das bordas de quadrinho. */
+  --tertiary: #cebdff;
+
+  /*
+   * Tinta dos titulos. No escuro a letra e roxa com relevo roxo; no claro a
+   * letra vira quase preta e o roxo passa a ser o relevo, senao o titulo fica
+   * oco, sem contraste no meio.
+   */
+  --title-ink: var(--accent);
+  --title-shadow: var(--tertiary);
+
+  --cyan: #cebdff;
+  --danger: #ffb4ab;
+  --on-danger: #690005;
+  --ok: #7ee0a4;
+
+  /* Tipografia do design. */
+  --font-comic: 'Bangers', 'Impact', 'Haettenschweiler', 'Arial Narrow Bold',
+    'Arial Black', system-ui, sans-serif;
+  --font-body: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-label: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  /* Relevo duro, sem desfoque: a assinatura visual do design. */
+  --comic-shadow: 4px 4px 0 var(--tertiary);
+  --comic-shadow-sm: 3px 3px 0 var(--tertiary);
+  --comic-edge: 3px solid var(--bg);
 
   --nav-w: 232px;
   --player-h: 78px;
@@ -28,50 +68,32 @@
 }
 
 /*
- * Tema claro (RF60). O app e escuro por padrao; aqui so os tokens mudam, e
- * todo o resto da folha continua lendo as mesmas variaveis. O neutro puxa
- * levemente para o violeta do acento, para nao parecer cinza de fabrica.
+ * Tema claro (RF60). A estrutura de quadrinho continua: o que muda sao os
+ * tokens. Aqui o roxo escurece para funcionar sobre papel claro, e o relevo
+ * das bordas vira quase preto, como tinta de impressao.
  */
 :root[data-theme='claro'] {
-  --bg: #f7f7fb;
+  --bg: #f4f2fa;
   --bg-elevated: #ffffff;
-  --bg-hover: #eeeef5;
-  --line: #dcdce8;
-  --text: #1a1a24;
-  --text-dim: #63637a;
-  --accent: #6d3fe0;
+  --bg-hover: #ece7f8;
+  --line: #6d3bd7;
+  --text: #1a1524;
+  --text-dim: #56506a;
+
+  --accent: #6d3bd7;
   --accent-soft: #5a2fd0;
-  --cyan: #0e7490;
-  --danger: #c2323b;
-  --ok: #17803d;
+  --on-accent: #ffffff;
+
+  --tertiary: #1a1524;
+  --title-ink: #1a1524;
+  --title-shadow: #6d3bd7;
+
+  --cyan: #4f319c;
+  --danger: #ba1a1a;
+  --on-danger: #ffffff;
+  --ok: #146c2e;
 
   color-scheme: light;
-}
-
-/* No claro, o botao branco do player some no fundo; inverte-se. */
-:root[data-theme='claro'] .play-button {
-  background: var(--text);
-  color: #ffffff;
-}
-
-:root[data-theme='claro'] .button--danger {
-  color: #ffffff;
-}
-
-:root[data-theme='claro'] .track__playGlyph {
-  background: rgba(0, 0, 0, 0.45);
-}
-
-:root[data-theme='claro'] .nowplaying {
-  background: linear-gradient(180deg, #ecebf7 0%, var(--bg) 55%);
-}
-
-:root[data-theme='claro'] .toast {
-  background: #ffffff;
-}
-
-:root[data-theme='claro'] .search input::-webkit-search-cancel-button {
-  filter: none;
 }
 
 * {
@@ -86,12 +108,48 @@ body {
 
 body {
   background: var(--bg);
+  /* Meio-tom: a trama de pontinhos da impressao em quadrinho. */
+  background-image: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--tertiary) 12%, transparent) 1.5px,
+    transparent 1.5px
+  );
+  background-size: 8px 8px;
+  background-attachment: fixed;
   color: var(--text);
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
+}
+
+/* --- Assinatura de quadrinho --------------------------------------------- */
+
+/* Titulos com voz de capa: caixa alta, apertados, levemente tortos. */
+.comic-title {
+  font-family: var(--font-comic);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--title-ink);
+  -webkit-text-stroke: 1px var(--bg);
+  text-shadow: 2px 2px 0 var(--title-shadow);
+}
+
+/* Rotulos pequenos em monoespacada, como legenda de quadrinho. */
+.comic-label {
+  font-family: var(--font-label);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Relevo duro: borda da cor do fundo mais sombra solida deslocada. */
+.comic-box {
+  border: var(--comic-edge);
+  box-shadow: var(--comic-shadow);
 }
 
 h1, h2, h3 {
@@ -155,7 +213,7 @@ select {
   height: 100dvh;
   padding: 20px 12px calc(var(--player-h) + 20px);
   padding-left: calc(12px + var(--safe-l));
-  border-right: 1px solid var(--line);
+  border-right: 4px solid var(--bg);
   background: var(--bg-elevated);
   display: flex;
   flex-direction: column;
@@ -167,9 +225,15 @@ select {
   align-items: center;
   gap: 10px;
   padding: 0 10px;
-  font-weight: 700;
-  font-size: 17px;
-  letter-spacing: -0.01em;
+  white-space: nowrap;
+  font-family: var(--font-comic);
+  font-weight: 400;
+  font-size: 26px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--title-ink);
+  -webkit-text-stroke: 1px var(--bg);
+  text-shadow: 2px 2px 0 var(--title-shadow);
 }
 
 .nav ul {
@@ -200,10 +264,13 @@ select {
   color: var(--text);
 }
 
-.nav ul button.is-active {
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
-  color: var(--text);
-  font-weight: 600;
+.nav ul button.is-active,
+.nav__settings.is-active {
+  background: var(--accent);
+  color: var(--on-accent);
+  border: var(--comic-edge);
+  box-shadow: var(--comic-shadow-sm);
+  font-weight: 700;
 }
 
 .nav__settings {
@@ -225,11 +292,7 @@ select {
   color: var(--text);
 }
 
-.nav__settings.is-active {
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
-  color: var(--text);
-  font-weight: 600;
-}
+
 
 .nav__offline {
   margin: 0;
@@ -283,8 +346,15 @@ select {
 }
 
 .view__header h1 {
-  font-size: 28px;
-  letter-spacing: -0.02em;
+  font-family: var(--font-comic);
+  font-weight: 400;
+  font-size: 38px;
+  line-height: 1.1;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--title-ink);
+  -webkit-text-stroke: 1px var(--bg);
+  text-shadow: 2px 2px 0 var(--title-shadow);
 }
 
 .view__subtitle {
@@ -334,8 +404,16 @@ select {
 
 .button--accent {
   background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
+  border-color: var(--bg);
+  color: var(--on-accent);
+  font-weight: 700;
+  box-shadow: var(--comic-shadow-sm);
+}
+
+.button--accent:active:not(:disabled) {
+  /* Aperta o relevo, como um botao impresso sendo pressionado. */
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--tertiary);
 }
 
 .button--accent:hover:not(:disabled) {
@@ -402,10 +480,11 @@ select {
   justify-content: center;
   width: 44px;
   height: 44px;
-  border: 0;
+  border: var(--comic-edge);
   border-radius: 50%;
-  background: var(--text);
-  color: #0b0b10;
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: var(--comic-shadow-sm);
   cursor: pointer;
   flex: none;
 }
@@ -479,19 +558,30 @@ select {
 }
 
 .chip {
-  padding: 7px 13px;
-  border: 1px solid var(--line);
+  padding: 8px 14px;
+  border: 2px solid var(--line);
   border-radius: 999px;
-  background: transparent;
-  color: var(--text-dim);
-  font-size: 13px;
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-family: var(--font-label);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   cursor: pointer;
+  white-space: nowrap;
+}
+
+.chip:hover {
+  border-color: var(--accent);
 }
 
 .chip.is-active {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
-  border-color: var(--accent);
-  color: var(--text);
+  background: var(--accent);
+  border-color: var(--bg);
+  color: var(--on-accent);
+  font-weight: 700;
+  box-shadow: var(--comic-shadow-sm);
 }
 
 .select select {
@@ -1463,9 +1553,10 @@ mark {
 
 .button--danger {
   background: var(--danger);
-  border-color: var(--danger);
-  color: #2a0b0b;
-  font-weight: 600;
+  border-color: var(--bg);
+  color: var(--on-danger);
+  font-weight: 700;
+  box-shadow: var(--comic-shadow-sm);
 }
 
 .button--danger:hover:not(:disabled) {
@@ -1625,7 +1716,10 @@ mark {
 }
 
 .row__reason {
-  font-size: 12px;
+  font-family: var(--font-label);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   color: var(--text-dim);
 }
 
@@ -1758,10 +1852,11 @@ mark {
   pointer-events: auto;
   width: 100%;
   padding: 12px 16px;
-  border: 1px solid var(--line);
+  border: var(--comic-edge);
   border-radius: 12px;
-  background: #1f1f2b;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  background: var(--bg-elevated);
+  color: var(--text);
+  box-shadow: var(--comic-shadow);
   font-size: 14px;
   text-align: left;
   cursor: pointer;
@@ -1898,6 +1993,7 @@ mark {
 }
 
 .collections button {
+  position: relative;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -1930,7 +2026,21 @@ mark {
   width: 100% !important;
   height: auto !important;
   aspect-ratio: 1;
-  margin-bottom: 4px;
+  margin-bottom: 10px;
+  border: var(--comic-edge);
+  box-shadow: var(--comic-shadow);
+  transition: transform 0.16s ease;
+}
+
+/* Levanta e inclina de leve, como uma revista puxada da pilha. */
+.collections button:hover .cover,
+.collections button:focus-visible .cover {
+  transform: translateY(-4px) rotate(1deg);
+}
+
+.collections li:nth-child(even) button:hover .cover,
+.collections li:nth-child(even) button:focus-visible .cover {
+  transform: translateY(-4px) rotate(-1deg);
 }
 
 .cover--round {
@@ -1938,8 +2048,10 @@ mark {
 }
 
 .collections__name {
-  font-weight: 600;
-  font-size: 14px;
+  font-family: var(--font-comic);
+  font-weight: 400;
+  font-size: 19px;
+  letter-spacing: 0.03em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1947,7 +2059,10 @@ mark {
 }
 
 .collections__meta {
-  font-size: 12px;
+  font-family: var(--font-label);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   color: var(--text-dim);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2160,6 +2275,28 @@ mark {
 }
 
 
+/* Selo com a contagem de faixas, torto no canto, como preco de revista. */
+.stamp {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1;
+  padding: 2px 7px;
+  background: var(--bg);
+  color: var(--accent);
+  border: 2px solid var(--accent);
+  font-family: var(--font-comic);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  transform: rotate(6deg);
+  pointer-events: none;
+}
+
+.collections li:nth-child(even) .stamp,
+.row__scroller li:nth-child(even) .stamp {
+  transform: rotate(-4deg);
+}
+
 /* --- Faixas horizontais de capas (home) ---------------------------------- */
 
 .row {
@@ -2176,8 +2313,12 @@ mark {
 }
 
 .row__head h2 {
-  font-size: 19px;
-  letter-spacing: -0.01em;
+  font-family: var(--font-comic);
+  font-weight: 400;
+  font-size: 26px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text);
 }
 
 .row__scroller {
@@ -2216,7 +2357,22 @@ mark {
   display: block;
   width: 148px;
   height: 148px;
-  margin-bottom: 6px;
+  margin-bottom: 10px;
+  border: var(--comic-edge);
+  box-shadow: var(--comic-shadow);
+  overflow: hidden;
+  transition: transform 0.16s ease;
+}
+
+/* Levanta e inclina de leve, como uma revista sendo puxada da pilha. */
+.row__scroller button:hover .row__art,
+.row__scroller button:focus-visible .row__art {
+  transform: translateY(-4px) rotate(1deg);
+}
+
+.row__scroller li:nth-child(even) button:hover .row__art,
+.row__scroller li:nth-child(even) button:focus-visible .row__art {
+  transform: translateY(-4px) rotate(-1deg);
 }
 
 .row__play {
@@ -2244,8 +2400,10 @@ mark {
 }
 
 .row__title {
-  font-weight: 600;
-  font-size: 14px;
+  font-family: var(--font-comic);
+  font-weight: 400;
+  font-size: 19px;
+  letter-spacing: 0.03em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2253,7 +2411,10 @@ mark {
 }
 
 .row__subtitle {
-  font-size: 12px;
+  font-family: var(--font-label);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   color: var(--text-dim);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2262,8 +2423,11 @@ mark {
 }
 
 .listhead__title {
-  font-size: 19px;
-  letter-spacing: -0.01em;
+  font-family: var(--font-comic);
+  font-weight: 400;
+  font-size: 26px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .dropzone__hint {
@@ -2331,11 +2495,7 @@ mark {
   color: var(--text);
 }
 
-.nav__settings.is-active {
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
-  color: var(--text);
-  font-weight: 600;
-}
+
 
 .nav__offline {
     display: none;
@@ -2465,7 +2625,7 @@ mark {
 
   .row__head h2,
   .listhead__title {
-    font-size: 17px;
+    font-size: 22px;
   }
 
   /* Tocar, Aleatorio e a ordenacao cabem numa linha so quando compactados. */

@@ -45,6 +45,17 @@ export default defineConfig({
             },
           },
           {
+            // As fontes vem do Google. Guardadas na primeira visita, o app
+            // continua com a cara certa offline.
+            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\//,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'fontes',
+              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
             // Buscas no acervo: rede primeiro, com copia para uso offline.
             urlPattern: /^https:\/\/archive\.org\/(advancedsearch\.php|metadata\/)/,
             handler: 'NetworkFirst',

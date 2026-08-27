@@ -149,8 +149,9 @@ export function HomeView() {
       .map(({ key, tracks: albumTracks }) => ({
         key,
         title: albumTracks[0].album,
-        subtitle: `${albumTracks[0].artist} - ${plural(albumTracks.length, 'musica', 'musicas')}`,
+        subtitle: albumTracks[0].artist,
         cover: albumTracks[0],
+        stamp: plural(albumTracks.length, 'faixa', 'faixas'),
         onPlay: () => player.playTracks(albumTracks, 0),
       }));
   }, [player, tracks]);
@@ -388,8 +389,9 @@ export function HomeView() {
                 cards={albumHits.map((hit) => ({
                   key: hit.key,
                   title: hit.name,
-                  subtitle: `${hit.tracks[0].artist} - ${plural(hit.tracks.length, 'musica', 'musicas')}`,
+                  subtitle: hit.tracks[0].artist,
                   cover: hit.tracks[0],
+                  stamp: plural(hit.tracks.length, 'faixa', 'faixas'),
                   onPlay: () => player.playTracks(hit.tracks, 0),
                 }))}
               />
@@ -407,6 +409,7 @@ export function HomeView() {
                     title: hit.playlist.name,
                     subtitle: plural(faixas.length, 'musica', 'musicas'),
                     cover: faixas[0],
+                    stamp: plural(faixas.length, 'faixa', 'faixas'),
                     onPlay: () => player.playTracks(faixas, 0),
                   }];
                 })}

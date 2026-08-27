@@ -9,6 +9,8 @@ export interface Card {
   subtitle: string;
   /** Faixa usada apenas para desenhar a capa. */
   cover: Track;
+  /** Selo no canto da capa, como o preco numa capa de revista. */
+  stamp?: string;
   onPlay: () => void;
 }
 
@@ -39,6 +41,7 @@ export function CardRow({ title, cards, action, round = false }: CardRowProps) {
           <li key={card.key}>
             <button type="button" onClick={card.onPlay} aria-label={`Tocar ${card.title}`}>
               <span className="row__art">
+                {card.stamp && <span className="stamp">{card.stamp}</span>}
                 <Cover
                   track={card.cover}
                   size={148}

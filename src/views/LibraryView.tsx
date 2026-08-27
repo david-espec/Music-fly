@@ -64,7 +64,8 @@ function groupBy(tracks: Track[], by: 'album' | 'artista'): Collection[] {
         ? {
             key,
             name: ordered[0].album,
-            subtitle: `${ordered[0].artist} - ${plural(ordered.length, 'musica', 'musicas')}`,
+            // A contagem aparece no selo sobre a capa; repetir aqui so rouba espaco.
+            subtitle: ordered[0].artist,
             tracks: ordered,
           }
         : {
@@ -416,6 +417,9 @@ export function LibraryView({
                       )
                     }
                   >
+                    {section === 'albuns' && (
+                      <span className="stamp">{plural(item.tracks.length, 'faixa', 'faixas')}</span>
+                    )}
                     <Cover
                       track={item.tracks[0]}
                       size={132}

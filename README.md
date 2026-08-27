@@ -190,6 +190,24 @@ scripts/
   generate-icons.mjs   gera os ícones PWA (sem dependências externas)
 ```
 
+## Identidade visual
+
+A cara do app segue um design de quadrinho: paleta Material 3 roxa, fundo em
+meio-tom (a trama de pontinhos da impressão), relevo duro nas bordas — sombra
+sólida deslocada, sem desfoque — e capas que levantam e tortam de leve ao passar
+o mouse. Títulos em **Bangers**, texto em **Plus Jakarta Sans**, rótulos
+pequenos em **JetBrains Mono**.
+
+As fontes vêm do Google Fonts por um `@import` em `src/styles.css` — e não por
+um `<link>` no HTML, porque a build do Vite descarta folhas externas declaradas
+assim. O service worker guarda as fontes na primeira visita, então elas
+funcionam offline depois. Antes disso, e sempre que faltar rede, valem as pilhas
+de reserva declaradas nos tokens.
+
+O tema claro mantém a mesma estrutura: só os tokens mudam. Como o roxo do design
+é claro, existe um token `--on-accent` para o texto sobre ele — branco ali seria
+ilegível.
+
 ## Stack
 
 React 19 · TypeScript · Vite · vite-plugin-pwa (Workbox) · idb · music-metadata
