@@ -1,6 +1,12 @@
 /**
  * Cliente do Internet Archive - acervo publico de audio de livre distribuicao.
  * Sem chave de API, sem cadastro e sem anuncios.
+ *
+ * O acervo tem milhoes de itens de audio e cobre praticamente todo genero
+ * que existe: dos 78 rotacoes (samba, choro, jazz, blues, tango, classica)
+ * aos netlabels de eletronica, passando por milhares de shows ao vivo. O que
+ * decide o alcance da busca aqui e a consulta que montamos, entao ela e
+ * deliberadamente ampla.
  */
 import type { ArchiveAlbum, Track } from '../types';
 import { uid } from './format';
@@ -39,6 +45,7 @@ interface SearchDoc {
   creator?: string | string[];
   year?: string | number;
   downloads?: number;
+  subject?: string | string[];
 }
 
 interface ArchiveFile {
@@ -82,25 +89,120 @@ function parseLength(value: string | number | undefined): number {
   return Number.isFinite(seconds) ? seconds : 0;
 }
 
+/**
+ * Generos e estilos oferecidos como atalho. A lista mistura o que o acervo
+ * tem em quantidade la fora com o que faz sentido para quem fala portugues,
+ * e cada item vira uma consulta por etiqueta (`subject`) no acervo.
+ *
+ * `termos` traz sinonimos porque a etiquetagem do acervo e feita por quem
+ * envia o material: "classica" aparece como "classical", "forro" as vezes
+ * como "forro" e as vezes como "baiao".
+ */
+export const GENRES: { id: string; label: string; termos: string[] }[] = [
+  { id: 'rock', label: 'Rock', termos: ['rock'] },
+  { id: 'mpb', label: 'MPB', termos: ['mpb', 'musica popular brasileira'] },
+  { id: 'samba', label: 'Samba', termos: ['samba', 'pagode'] },
+  { id: 'bossa', label: 'Bossa nova', termos: ['bossa nova'] },
+  { id: 'forro', label: 'Forro', termos: ['forro', 'baiao', 'xote'] },
+  { id: 'sertanejo', label: 'Sertanejo', termos: ['sertanejo', 'country'] },
+  { id: 'funk', label: 'Funk', termos: ['funk'] },
+  { id: 'axe', label: 'Axe', termos: ['axe', 'frevo', 'maracatu'] },
+  { id: 'choro', label: 'Choro', termos: ['choro', 'chorinho'] },
+  { id: 'pop', label: 'Pop', termos: ['pop'] },
+  { id: 'hiphop', label: 'Hip hop', termos: ['hip hop', 'rap'] },
+  { id: 'eletronica', label: 'Eletronica', termos: ['electronic', 'techno', 'house'] },
+  { id: 'jazz', label: 'Jazz', termos: ['jazz'] },
+  { id: 'blues', label: 'Blues', termos: ['blues'] },
+  { id: 'classica', label: 'Classica', termos: ['classical', 'orchestra', 'symphony'] },
+  { id: 'reggae', label: 'Reggae', termos: ['reggae', 'ska', 'dub'] },
+  { id: 'metal', label: 'Metal', termos: ['metal', 'hardcore', 'punk'] },
+  { id: 'gospel', label: 'Gospel', termos: ['gospel', 'worship', 'christian'] },
+  { id: 'soul', label: 'Soul e R&B', termos: ['soul', 'rhythm and blues', 'motown'] },
+  { id: 'latina', label: 'Latina', termos: ['latin', 'salsa', 'cumbia', 'tango'] },
+  { id: 'africana', label: 'Africana', termos: ['afrobeat', 'african', 'highlife'] },
+  { id: 'kpop', label: 'Asiatica', termos: ['k-pop', 'j-pop', 'asian'] },
+  { id: 'folk', label: 'Folk', termos: ['folk', 'acoustic', 'bluegrass'] },
+  { id: 'lofi', label: 'Lo-fi e chill', termos: ['lo-fi', 'chillout', 'downtempo'] },
+  { id: 'ambiente', label: 'Ambiente', termos: ['ambient', 'drone', 'new age'] },
+  { id: 'trilha', label: 'Trilhas', termos: ['soundtrack', 'film score', 'video game music'] },
+  { id: 'infantil', label: 'Infantil', termos: ['children', 'kids', 'nursery'] },
+  { id: 'aovivo', label: 'Shows ao vivo', termos: ['live concert', 'live'] },
+];
+
+/** Ordenacoes que o acervo aceita, com nome em portugues. */
+export const SORTS: { id: string; label: string; param: string }[] = [
+  { id: 'relevancia', label: 'Mais relevantes', param: '' },
+  { id: 'populares', label: 'Mais baixados', param: 'downloads desc' },
+  { id: 'novos', label: 'Mais recentes', param: 'addeddate desc' },
+  { id: 'nota', label: 'Melhor avaliados', param: 'avg_rating desc' },
+];
+
+/**
+ * Deixa passar so o que o acervo entende como texto de busca. O usuario
+ * digita livre, e um parenteses ou dois-pontos solto derrubaria a consulta
+ * inteira com erro de sintaxe em vez de simplesmente nao achar nada.
+ */
+function termsOf(query: string): string[] {
+  return query
+    .replace(/["\\+\-!(){}[\]^~*?:/]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+/** Onde cada palavra e procurada. Colecoes diferentes preenchem campos diferentes. */
+const SEARCH_FIELDS = ['title', 'creator', 'subject', 'description', 'identifier'];
+
+/**
+ * Monta a consulta. A regra e alcancar o maximo de acervo possivel:
+ *
+ * - cada palavra digitada precisa aparecer em algum campo do item, mas nao
+ *   precisa ser no mesmo: "chico construcao" acha o item cujo artista e Chico
+ *   e cujo titulo e Construcao;
+ * - procura tambem na etiqueta de genero e na descricao, e nao so no titulo,
+ *   que era o que fazia buscar por estilo nao devolver nada;
+ * - o filtro de formato aceita tudo que o navegador toca, e nao so MP3 - isso
+ *   sozinho ja destrava as colecoes que so tem Ogg ou FLAC;
+ * - sem termo nenhum, varre o acervo de audio inteiro em vez de duas colecoes
+ *   escolhidas a dedo.
+ */
+export function buildQuery(query: string, genreId?: string): string {
+  const formatos = [...PLAYABLE_FORMATS].map((f) => `"${f}"`).join(' OR ');
+  const partes = ['mediatype:(audio)', `format:(${formatos})`];
+
+  for (const termo of termsOf(query)) {
+    partes.push(`(${SEARCH_FIELDS.map((campo) => `${campo}:(${termo})`).join(' OR ')})`);
+  }
+
+  const genero = GENRES.find((item) => item.id === genreId);
+  if (genero) {
+    partes.push(`subject:(${genero.termos.map((t) => `"${t}"`).join(' OR ')})`);
+  }
+
+  return partes.join(' AND ');
+}
+
 export async function searchAlbums(
   query: string,
   page: number,
   signal?: AbortSignal,
+  options: { genre?: string; sort?: string } = {},
 ): Promise<{ albums: ArchiveAlbum[]; total: number }> {
-  const terms = query.trim();
-  // Sem termo de busca, mostramos gravacoes populares de livre distribuicao.
-  const q = terms
-    ? `(${terms}) AND mediatype:(audio) AND format:(MP3)`
-    : 'collection:(netlabels OR audio_music) AND mediatype:(audio) AND format:(MP3)';
-
   const params = new URLSearchParams({
-    q,
+    q: buildQuery(query, options.genre),
     rows: '30',
     page: String(page),
     output: 'json',
-    sort: 'downloads desc',
   });
-  for (const field of ['identifier', 'title', 'creator', 'year', 'downloads']) {
+
+  // "Mais relevantes" e a ausencia de ordenacao: quem ranqueia e o acervo.
+  // Sem termo e sem genero nao ha o que ranquear - a vitrine de entrada
+  // cairia num punhado de itens ao acaso -, entao ali vale o mais baixado.
+  const escolhida = SORTS.find((item) => item.id === options.sort);
+  const semFiltro = termsOf(query).length === 0 && !options.genre;
+  const sort = escolhida?.param || (semFiltro ? 'downloads desc' : '');
+  if (sort) params.append('sort[]', sort);
+
+  for (const field of ['identifier', 'title', 'creator', 'year', 'downloads', 'subject']) {
     params.append('fl[]', field);
   }
 
@@ -120,8 +222,25 @@ export async function searchAlbums(
       year: doc.year ? Number(doc.year) || undefined : undefined,
       downloads: doc.downloads,
       coverUrl: coverUrlFor(doc.identifier),
+      tags: normalizeTags(doc.subject),
     })),
   };
+}
+
+/** As etiquetas vem ora como lista, ora como uma string separada por virgulas. */
+function normalizeTags(subject: string | string[] | undefined): string[] {
+  const bruto = Array.isArray(subject) ? subject : subject ? subject.split(/[,;]/) : [];
+  const vistos = new Set<string>();
+  const saida: string[] = [];
+  for (const item of bruto) {
+    const limpo = item.trim();
+    if (!limpo) continue;
+    const chave = limpo.toLowerCase();
+    if (vistos.has(chave)) continue;
+    vistos.add(chave);
+    saida.push(limpo);
+  }
+  return saida;
 }
 
 /** Lista as faixas tocaveis de um item do acervo, ja como Track. */

@@ -68,6 +68,8 @@ export interface ArchiveAlbum {
   year?: number;
   downloads?: number;
   coverUrl: string;
+  /** Etiquetas do acervo, quase sempre o genero e o estilo. */
+  tags?: string[];
 }
 
 /** Uma linha da letra. `time` e NaN quando a letra nao tem sincronia. */

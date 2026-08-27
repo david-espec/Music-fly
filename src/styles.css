@@ -581,6 +581,50 @@ select {
   box-shadow: var(--comic-shadow-sm);
 }
 
+/*
+ * Faixa de generos da aba Descobrir. Sao quase trinta atalhos: em vez de
+ * quebrar em varias linhas e empurrar os resultados para fora da tela, a
+ * faixa rola de lado, com o encaixe do dedo em cada chip.
+ */
+.genres {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scroll-snap-type: x proximate;
+  /* espaco para o relevo do chip ativo, que sangra 3px para baixo e para a direita */
+  padding: 2px 2px 6px;
+  margin: 0 -2px;
+  scrollbar-width: thin;
+}
+
+.genres .chip {
+  flex: none;
+  scroll-snap-align: start;
+}
+
+.sortpicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.sortpicker select {
+  height: 36px;
+  padding: 0 10px;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.sortpicker select:hover {
+  border-color: var(--accent);
+}
+
 .select select {
   height: 40px;
   padding: 0 12px;
