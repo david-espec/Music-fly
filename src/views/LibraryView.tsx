@@ -13,6 +13,7 @@ import {
   PlayIcon,
   PlusIcon,
   SearchIcon,
+  SettingsIcon,
   ShuffleIcon,
   TrashIcon,
 } from '../components/Icons';
@@ -76,7 +77,13 @@ function groupBy(tracks: Track[], by: 'album' | 'artista'): Collection[] {
     .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 }
 
-export function LibraryView({ onOpenAbout }: { onOpenAbout: () => void }) {
+export function LibraryView({
+  onOpenAbout,
+  onOpenSettings,
+}: {
+  onOpenAbout: () => void;
+  onOpenSettings: () => void;
+}) {
   const library = useLibrary();
   const player = usePlayer();
   const { tracks, playlists } = library;
@@ -230,15 +237,26 @@ export function LibraryView({ onOpenAbout }: { onOpenAbout: () => void }) {
             {offline.length} offline
           </p>
         </div>
-        <button
-          type="button"
-          className="icon-button"
-          aria-label="Sobre e privacidade"
-          title="Sobre e privacidade"
-          onClick={onOpenAbout}
-        >
-          <InfoIcon width={22} height={22} />
-        </button>
+        <div className="view__actions">
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Configuracoes"
+            title="Configuracoes"
+            onClick={onOpenSettings}
+          >
+            <SettingsIcon width={22} height={22} />
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Sobre e privacidade"
+            title="Sobre e privacidade"
+            onClick={onOpenAbout}
+          >
+            <InfoIcon width={22} height={22} />
+          </button>
+        </div>
       </header>
 
       <div className="chips" role="tablist" aria-label="Secoes da biblioteca">

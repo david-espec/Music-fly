@@ -27,6 +27,53 @@
   color-scheme: dark;
 }
 
+/*
+ * Tema claro (RF60). O app e escuro por padrao; aqui so os tokens mudam, e
+ * todo o resto da folha continua lendo as mesmas variaveis. O neutro puxa
+ * levemente para o violeta do acento, para nao parecer cinza de fabrica.
+ */
+:root[data-theme='claro'] {
+  --bg: #f7f7fb;
+  --bg-elevated: #ffffff;
+  --bg-hover: #eeeef5;
+  --line: #dcdce8;
+  --text: #1a1a24;
+  --text-dim: #63637a;
+  --accent: #6d3fe0;
+  --accent-soft: #5a2fd0;
+  --cyan: #0e7490;
+  --danger: #c2323b;
+  --ok: #17803d;
+
+  color-scheme: light;
+}
+
+/* No claro, o botao branco do player some no fundo; inverte-se. */
+:root[data-theme='claro'] .play-button {
+  background: var(--text);
+  color: #ffffff;
+}
+
+:root[data-theme='claro'] .button--danger {
+  color: #ffffff;
+}
+
+:root[data-theme='claro'] .track__playGlyph {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+:root[data-theme='claro'] .nowplaying {
+  background: linear-gradient(180deg, #ecebf7 0%, var(--bg) 55%);
+}
+
+:root[data-theme='claro'] .toast {
+  background: #ffffff;
+}
+
+:root[data-theme='claro'] .search input::-webkit-search-cancel-button {
+  filter: none;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -159,8 +206,33 @@ select {
   font-weight: 600;
 }
 
+.nav__settings {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  text-align: left;
+}
+
+.nav__settings:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.nav__settings.is-active {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--text);
+  font-weight: 600;
+}
+
 .nav__offline {
-  margin: auto 0 0;
+  margin: 0;
   padding: 8px 12px;
   display: flex;
   align-items: center;
@@ -199,6 +271,15 @@ select {
 
 .view__header--detail {
   align-items: center;
+}
+
+/*
+ * O bloco de titulo empurra o resto para a direita. Sem isto, um cabecalho de
+ * detalhe com apenas o botao de voltar e o titulo joga o titulo para a
+ * direita, por causa do space-between.
+ */
+.view__header--detail > div:first-of-type {
+  margin-right: auto;
 }
 
 .view__header h1 {
@@ -304,6 +385,11 @@ select {
 
 .icon-button--danger:hover {
   color: var(--danger);
+}
+
+.icon-button--tiny {
+  width: 30px;
+  height: 30px;
 }
 
 .icon-button--back {
@@ -1443,6 +1529,140 @@ mark {
   flex: 1;
 }
 
+/* --- Estatisticas -------------------------------------------------------- */
+
+.statgrid {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.statgrid > div {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg-elevated);
+}
+
+.statgrid dt {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.statgrid dd {
+  margin: 4px 0 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.statcols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.ranking {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ranking li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+  border-radius: 10px;
+}
+
+.ranking li:hover {
+  background: var(--bg-hover);
+}
+
+.ranking__pos {
+  width: 20px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+  font-size: 13px;
+  flex: none;
+}
+
+.ranking__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ranking__name,
+.ranking__meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ranking__name {
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.ranking__meta {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.ranking__value {
+  font-size: 13px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.row__reason {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* --- Configuracoes ------------------------------------------------------- */
+
+.switch {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  cursor: pointer;
+}
+
+.switch input {
+  margin: 2px 0 0;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  flex: none;
+  cursor: pointer;
+}
+
+.switch span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.switch strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.switch small {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
 /* --- Instalar o app ------------------------------------------------------ */
 
 .dialog--install {
@@ -2092,7 +2312,32 @@ mark {
   }
 
   .nav__brand,
-  .nav__offline {
+  .nav__settings {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  text-align: left;
+}
+
+.nav__settings:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.nav__settings.is-active {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.nav__offline {
     display: none;
   }
 

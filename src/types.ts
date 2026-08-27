@@ -90,4 +90,11 @@ export interface Lyrics {
   savedAt: number;
 }
 
-export type ViewId = 'inicio' | 'biblioteca' | 'letra' | 'descobrir' | 'sobre';
+export type ViewId =
+  | 'inicio'
+  | 'biblioteca'
+  | 'letra'
+  | 'descobrir'
+  | 'estatisticas'
+  | 'configuracoes'
+  | 'sobre';

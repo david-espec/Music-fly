@@ -18,6 +18,7 @@ export type QueueAction =
   | { type: 'removeAt'; position: number }
   | { type: 'removeById'; id: string }
   | { type: 'jumpTo'; position: number }
+  | { type: 'moveInOrder'; from: number; to: number }
   | { type: 'setIndex'; index: number }
   | { type: 'setShuffle'; enabled: boolean }
   | { type: 'updateDuration'; id: string; duration: number }
@@ -100,6 +101,20 @@ export function queueReducer(state: QueueState, action: QueueAction): QueueState
     case 'jumpTo': {
       const target = state.order.indexOf(action.position);
       return target < 0 ? state : { ...state, index: target };
+    }
+
+    case 'moveInOrder': {
+      const { from, to } = action;
+      if (from === to || from < 0 || to < 0) return state;
+      if (from >= state.order.length || to >= state.order.length) return state;
+
+      const order = [...state.order];
+      const [movido] = order.splice(from, 1);
+      order.splice(to, 0, movido);
+
+      // A faixa que esta tocando nao pode mudar so porque a fila foi mexida.
+      const tocando = state.order[state.index];
+      return { ...state, order, index: order.indexOf(tocando) };
     }
 
     case 'setIndex':

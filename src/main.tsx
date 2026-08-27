@@ -6,6 +6,7 @@ import { ToastProvider } from './components/Toast';
 import { PlayerProvider } from './player/PlayerContext';
 import { LibraryProvider } from './library/LibraryContext';
 import { InstallProvider } from './install/InstallContext';
+import { ThemeProvider } from './theme/ThemeContext';
 import './styles.css';
 
 registerSW({ immediate: true });
@@ -15,14 +16,16 @@ if (!container) throw new Error('Elemento #root nao encontrado');
 
 createRoot(container).render(
   <StrictMode>
-    <ToastProvider>
-      <InstallProvider>
-        <PlayerProvider>
-          <LibraryProvider>
-            <App />
-          </LibraryProvider>
-        </PlayerProvider>
-      </InstallProvider>
-    </ToastProvider>
+    <ThemeProvider>
+      <ToastProvider>
+        <InstallProvider>
+          <PlayerProvider>
+            <LibraryProvider>
+              <App />
+            </LibraryProvider>
+          </PlayerProvider>
+        </InstallProvider>
+      </ToastProvider>
+    </ThemeProvider>
   </StrictMode>,
 );

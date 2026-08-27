@@ -5,16 +5,22 @@
 Player de música que funciona no navegador e se instala como app no celular ou
 no computador. **Sem anúncios, sem rastreamento, sem cadastro.**
 
-Quatro abas, simples de usar:
+Cinco abas, simples de usar:
 
 - **Início** — busca no topo, suas músicas logo abaixo.
-- **Biblioteca** — playlists, álbuns e artistas, montados a partir das tags dos
-  seus arquivos.
+- **Biblioteca** — playlists, álbuns, artistas, curtidas e downloads, montados a
+  partir das tags dos seus arquivos.
 - **Letra** — a letra da música que está tocando, acompanhando o áudio linha a
   linha. Clique numa linha para pular para aquele trecho.
 - **Descobrir** — o acervo público de áudio do [Internet Archive](https://archive.org/details/audio),
   com gravações de domínio público e sob licenças Creative Commons. Dá para ouvir
   por streaming ou baixar para ouvir offline.
+- **Estatísticas** — o que você mais ouve, seus artistas e álbuns preferidos, e
+  recomendações tiradas daí. Cada sugestão diz de onde veio.
+
+Mais uma tela de **Configurações** (engrenagem na barra lateral, ou no cabeçalho
+da Biblioteca no celular): tema claro/escuro/do sistema, retomada da reprodução,
+limpar histórico e limpar cache.
 
 Os arquivos que você adiciona (MP3, FLAC, M4A, OGG, WAV…) ficam guardados no
 próprio dispositivo e tocam sem internet.
@@ -77,6 +83,9 @@ própria e funciona sem internet.
 | Controles do sistema | Media Session API: título, artista e capa na tela de bloqueio, e os botões de mídia do fone e do teclado funcionam. |
 | Editar faixas | Corrigir título, artista, álbum, ano e número da faixa, e trocar ou remover a capa. Útil quando o arquivo vem com tags erradas ou vazias — a Biblioteca reagrupa sozinha depois. |
 | Playlists | Criar, renomear, apagar, reordenar faixas. |
+| Curtidas | Coração em cada faixa e uma seção própria na Biblioteca. |
+| Histórico e estatísticas | Contagem de reproduções, tempo ouvido, mais tocadas, artistas e álbuns mais ouvidos. A música volta de onde parou. |
+| Recomendações | Listas tiradas do seu histórico e das suas curtidas, cada uma explicando o critério. |
 | Letras sincronizadas | Três fontes, nesta ordem: a letra gravada dentro do arquivo (ID3 SYLT), um arquivo `.lrc` que você adicione, ou uma busca no [LRCLIB](https://lrclib.net). O que for encontrado fica guardado e funciona offline depois. |
 | Descobrir | Busca no acervo livre, streaming imediato e download para uso offline, com a licença de cada obra à vista. |
 | Offline | O app inteiro e as músicas baixadas ficam disponíveis sem rede. |

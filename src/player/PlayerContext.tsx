@@ -20,6 +20,13 @@ interface PlayerValue {
   current: Track | null;
   /** Posicao da faixa atual dentro de `queue`. */
   currentQueuePosition: number;
+  /**
+   * A fila na ordem em que vai tocar. Com o modo aleatorio ligado, essa ordem
+   * difere de `queue`, que guarda as faixas como foram enfileiradas.
+   */
+  orderedQueue: { track: Track; position: number }[];
+  /** Indice da faixa atual dentro de `orderedQueue`. */
+  currentOrderIndex: number;
   isPlaying: boolean;
   isLoading: boolean;
   currentTime: number;
@@ -43,6 +50,8 @@ interface PlayerValue {
   addToQueue: (tracks: Track[]) => void;
   playNextInQueue: (tracks: Track[]) => void;
   removeFromQueue: (queuePosition: number) => void;
+  /** Move uma faixa dentro da fila, pela posicao de exibicao (RF27). */
+  moveInQueue: (from: number, to: number) => void;
   clearQueue: () => void;
   jumpTo: (queuePosition: number) => void;
   toggle: () => void;
@@ -89,6 +98,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [prefsLoaded, setPrefsLoaded] = useState(false);
 
   const currentQueuePosition = index >= 0 ? order[index] ?? -1 : -1;
+  const orderedQueue = useMemo(
+    () =>
+      order
+        .map((position) => ({ track: queue[position], position }))
+        .filter((item) => item.track !== undefined),
+    [order, queue],
+  );
   const current = currentQueuePosition >= 0 ? queue[currentQueuePosition] ?? null : null;
 
   // --- Preferencias persistidas ---------------------------------------------
@@ -422,6 +438,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const moveInQueue = useCallback(
+    (from: number, to: number) => dispatch({ type: 'moveInOrder', from, to }),
+    [],
+  );
+
   const clearQueue = useCallback(() => {
     shouldPlayRef.current = false;
     audioRef.current?.pause();
@@ -565,6 +586,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       queue,
       current,
       currentQueuePosition,
+      orderedQueue,
+      currentOrderIndex: index,
       isPlaying,
       isLoading,
       currentTime,
@@ -580,6 +603,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       addToQueue,
       playNextInQueue,
       removeFromQueue,
+      moveInQueue,
       clearQueue,
       jumpTo,
       toggle,
@@ -593,9 +617,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       toggleShuffle,
     }),
     [
-      queue, current, currentQueuePosition, isPlaying, isLoading, currentTime, duration,
+      queue, current, currentQueuePosition, orderedQueue, index, isPlaying, isLoading, currentTime, duration,
       volume, muted, repeat, shuffle, resumeEnabled, getCurrentTime, playTracks, addToQueue, playNextInQueue,
-      removeFromQueue, clearQueue, jumpTo, toggle, next, previous, seek, seekBy,
+      removeFromQueue, moveInQueue, clearQueue, jumpTo, toggle, next, previous, seek, seekBy,
       setVolume, toggleMute, cycleRepeat, toggleShuffle,
     ],
   );

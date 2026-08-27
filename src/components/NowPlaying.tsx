@@ -76,16 +76,12 @@ export function NowPlaying({ onClose }: { onClose: () => void }) {
             </button>
           </div>
           <ol className="queue">
-            {player.queue.map((item, position) => (
+            {player.orderedQueue.map(({ track: item, position }, ordem) => (
               <li
                 key={`${item.id}-${position}`}
-                className={position === player.currentQueuePosition ? 'queue__item--current' : ''}
+                className={ordem === player.currentOrderIndex ? 'queue__item--current' : ''}
               >
-                <button
-                  type="button"
-                  className="queue__play"
-                  onClick={() => player.jumpTo(position)}
-                >
+                <button type="button" className="queue__play" onClick={() => player.jumpTo(position)}>
                   <Cover track={item} size={36} />
                   <span className="queue__info">
                     <span className="queue__title">{item.title}</span>
@@ -93,13 +89,35 @@ export function NowPlaying({ onClose }: { onClose: () => void }) {
                   </span>
                 </button>
                 <span className="queue__duration">{formatDuration(item.duration)}</span>
+
+                {/* RF27: reordenar a fila. Setas em vez de arrastar, que no
+                    celular briga com a rolagem e nao funciona no teclado. */}
                 <button
                   type="button"
-                  className="icon-button"
+                  className="icon-button icon-button--tiny"
+                  aria-label={`Subir ${item.title} na fila`}
+                  disabled={ordem === 0}
+                  onClick={() => player.moveInQueue(ordem, ordem - 1)}
+                >
+                  <ChevronDownIcon width={16} height={16} style={{ transform: 'rotate(180deg)' }} />
+                </button>
+                <button
+                  type="button"
+                  className="icon-button icon-button--tiny"
+                  aria-label={`Descer ${item.title} na fila`}
+                  disabled={ordem === player.orderedQueue.length - 1}
+                  onClick={() => player.moveInQueue(ordem, ordem + 1)}
+                >
+                  <ChevronDownIcon width={16} height={16} />
+                </button>
+
+                <button
+                  type="button"
+                  className="icon-button icon-button--tiny"
                   aria-label={`Tirar ${item.title} da fila`}
                   onClick={() => player.removeFromQueue(position)}
                 >
-                  <CloseIcon width={18} height={18} />
+                  <CloseIcon width={16} height={16} />
                 </button>
               </li>
             ))}

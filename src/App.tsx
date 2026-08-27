@@ -6,6 +6,8 @@ import { LibraryView } from './views/LibraryView';
 import { LyricsView } from './views/LyricsView';
 import { DiscoverView } from './views/DiscoverView';
 import { AboutView } from './views/AboutView';
+import { StatsView } from './views/StatsView';
+import { SettingsView } from './views/SettingsView';
 import { PlayerBar } from './components/PlayerBar';
 import {
   CompassIcon,
@@ -13,6 +15,8 @@ import {
   LibraryIcon,
   LyricsIcon,
   OfflineIcon,
+  SettingsIcon,
+  StatsIcon,
 } from './components/Icons';
 
 const NAV: { id: ViewId; label: string; icon: typeof HomeIcon }[] = [
@@ -20,6 +24,7 @@ const NAV: { id: ViewId; label: string; icon: typeof HomeIcon }[] = [
   { id: 'biblioteca', label: 'Biblioteca', icon: LibraryIcon },
   { id: 'letra', label: 'Letra', icon: LyricsIcon },
   { id: 'descobrir', label: 'Descobrir', icon: CompassIcon },
+  { id: 'estatisticas', label: 'Estatisticas', icon: StatsIcon },
 ];
 
 /** Atalhos de teclado nao devem disparar enquanto o usuario digita. */
@@ -111,6 +116,16 @@ export function App() {
             </li>
           ))}
         </ul>
+        <button
+          type="button"
+          className={`nav__settings ${view === 'configuracoes' ? 'is-active' : ''}`}
+          aria-current={view === 'configuracoes' ? 'page' : undefined}
+          onClick={() => setView('configuracoes')}
+        >
+          <SettingsIcon width={20} height={20} />
+          <span>Configuracoes</span>
+        </button>
+
         {!online && (
           <p className="nav__offline">
             <OfflineIcon width={16} height={16} />
@@ -121,9 +136,14 @@ export function App() {
 
       <main className="main">
         {view === 'inicio' && <HomeView />}
-        {view === 'biblioteca' && <LibraryView onOpenAbout={() => setView('sobre')} />}
+        {view === 'biblioteca' && <LibraryView
+            onOpenAbout={() => setView('sobre')}
+            onOpenSettings={() => setView('configuracoes')}
+          />}
         {view === 'letra' && <LyricsView />}
         {view === 'descobrir' && <DiscoverView />}
+        {view === 'estatisticas' && <StatsView />}
+        {view === 'configuracoes' && <SettingsView onBack={() => setView('biblioteca')} />}
         {view === 'sobre' && <AboutView onBack={() => setView('biblioteca')} />}
       </main>
 
