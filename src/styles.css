@@ -303,11 +303,6 @@ select {
   border-radius: 10px;
 }
 
-/* Cabecalho do topo com a marca. So aparece no celular. */
-.appbar {
-  display: none;
-}
-
 /* --- Telas --------------------------------------------------------------- */
 
 .view {
@@ -2506,33 +2501,8 @@ mark {
     justify-content: center;
   }
 
-  .appbar {
-    position: sticky;
-    top: 0;
-    z-index: 35;
-    display: block;
-    padding: 12px 16px calc(12px + var(--safe-b) * 0);
-    text-align: center;
-    background: var(--bg-elevated);
-    border-bottom: 4px solid var(--bg);
-    font-family: var(--font-comic);
-    font-weight: 400;
-    font-size: 30px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--title-ink);
-    -webkit-text-stroke: 1px var(--bg);
-    text-shadow: 2px 2px 0 var(--title-shadow);
-  }
-
   .view {
-    padding: 16px 16px 8px;
-  }
-
-  /* A busca deixa de grudar no topo: quem gruda agora e o cabecalho. */
-  .topbar {
-    position: static;
-    background: none;
+    padding: 20px 16px 8px;
   }
 
   .view__header h1 {

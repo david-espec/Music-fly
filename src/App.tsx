@@ -131,10 +131,6 @@ export function App() {
         )}
       </nav>
 
-      {/* No celular a marca vem aqui, acima da busca. No desktop ela ja
-          esta na barra lateral, entao este cabecalho fica escondido. */}
-      <header className="appbar">Music Fly</header>
-
       <main className="main">
         {view === 'inicio' && <HomeView />}
         {view === 'biblioteca' && <LibraryView
