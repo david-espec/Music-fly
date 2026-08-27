@@ -221,9 +221,6 @@ select {
 }
 
 .nav__brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   padding: 0 10px;
   white-space: nowrap;
   font-family: var(--font-comic);
@@ -304,6 +301,11 @@ select {
   color: var(--text-dim);
   background: var(--bg-hover);
   border-radius: 10px;
+}
+
+/* Cabecalho do topo com a marca. So aparece no celular. */
+.appbar {
+  display: none;
 }
 
 /* --- Telas --------------------------------------------------------------- */
@@ -2475,29 +2477,14 @@ mark {
     backdrop-filter: blur(14px);
   }
 
+  /*
+   * A barra de baixo carrega so as abas. A marca vive no cabecalho do topo, e
+   * a engrenagem, no cabecalho da Biblioteca: espremer os tres aqui fazia a
+   * barra transbordar para fora da tela.
+   */
   .nav__brand,
-  .nav__settings {
-  margin-top: auto;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 11px 12px;
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
-  color: var(--text-dim);
-  cursor: pointer;
-  text-align: left;
-}
-
-.nav__settings:hover {
-  background: var(--bg-hover);
-  color: var(--text);
-}
-
-
-
-.nav__offline {
+  .nav__settings,
+  .nav__offline {
     display: none;
   }
 
@@ -2519,8 +2506,33 @@ mark {
     justify-content: center;
   }
 
+  .appbar {
+    position: sticky;
+    top: 0;
+    z-index: 35;
+    display: block;
+    padding: 12px 16px calc(12px + var(--safe-b) * 0);
+    text-align: center;
+    background: var(--bg-elevated);
+    border-bottom: 4px solid var(--bg);
+    font-family: var(--font-comic);
+    font-weight: 400;
+    font-size: 30px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--title-ink);
+    -webkit-text-stroke: 1px var(--bg);
+    text-shadow: 2px 2px 0 var(--title-shadow);
+  }
+
   .view {
-    padding: 20px 16px 8px;
+    padding: 16px 16px 8px;
+  }
+
+  /* A busca deixa de grudar no topo: quem gruda agora e o cabecalho. */
+  .topbar {
+    position: static;
+    background: none;
   }
 
   .view__header h1 {

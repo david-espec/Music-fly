@@ -97,10 +97,7 @@ export function App() {
   return (
     <div className={`app ${player.current ? 'app--playing' : ''}`}>
       <nav className="nav" aria-label="Secoes">
-        <div className="nav__brand">
-          <img src="./icons/icon.svg" alt="" width="32" height="32" />
-          <span>Music Fly</span>
-        </div>
+        <div className="nav__brand">Music Fly</div>
         <ul>
           {NAV.map(({ id, label, icon: Icon }) => (
             <li key={id}>
@@ -133,6 +130,10 @@ export function App() {
           </p>
         )}
       </nav>
+
+      {/* No celular a marca vem aqui, acima da busca. No desktop ela ja
+          esta na barra lateral, entao este cabecalho fica escondido. */}
+      <header className="appbar">Music Fly</header>
 
       <main className="main">
         {view === 'inicio' && <HomeView />}
