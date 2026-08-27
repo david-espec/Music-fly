@@ -394,8 +394,11 @@ export function DiscoverView() {
       {!loading && !error && albums.length === 0 && (
         <p className="empty">
           Nada encontrado{submitted ? ` para "${submitted}"` : ''}
-          {generoAtual ? ` em ${generoAtual.label}` : ''}. Tente outra palavra, ou o nome do
-          artista em vez do nome da musica: o acervo cataloga por album e por show.
+          {generoAtual ? ` em ${generoAtual.label}` : ''}. Duas coisas ajudam: procurar pelo nome
+          do artista em vez do nome da musica, porque o acervo cataloga por album e por show; e
+          lembrar que aqui so entra musica de livre distribuicao. Artista de gravadora depende de
+          licenca e nao esta neste acervo - para ouvir esses, importe na Biblioteca os arquivos
+          que voce ja tem.
         </p>
       )}
 

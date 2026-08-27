@@ -99,18 +99,26 @@ function parseLength(value: string | number | undefined): number {
  * como "forro" e as vezes como "baiao".
  */
 export const GENRES: { id: string; label: string; termos: string[] }[] = [
-  { id: 'rock', label: 'Rock', termos: ['rock'] },
+  // Os estilos brasileiros vem primeiro: e o que quem usa o app procura antes.
+  { id: 'funkbr', label: 'Funk brasileiro', termos: ['funk carioca', 'baile funk', 'funk brasileiro', 'funk ostentacao', 'favela funk', 'funk melody'] },
+  { id: 'sertanejo', label: 'Sertanejo', termos: ['sertanejo', 'sertanejo universitario', 'moda de viola', 'musica caipira'] },
   { id: 'mpb', label: 'MPB', termos: ['mpb', 'musica popular brasileira'] },
-  { id: 'samba', label: 'Samba', termos: ['samba', 'pagode'] },
+  { id: 'samba', label: 'Samba', termos: ['samba', 'samba de roda', 'partido alto'] },
+  { id: 'pagode', label: 'Pagode', termos: ['pagode', 'samba pagode'] },
   { id: 'bossa', label: 'Bossa nova', termos: ['bossa nova'] },
-  { id: 'forro', label: 'Forro', termos: ['forro', 'baiao', 'xote'] },
-  { id: 'sertanejo', label: 'Sertanejo', termos: ['sertanejo', 'country'] },
-  { id: 'funk', label: 'Funk', termos: ['funk'] },
-  { id: 'axe', label: 'Axe', termos: ['axe', 'frevo', 'maracatu'] },
+  { id: 'forro', label: 'Forro', termos: ['forro', 'baiao', 'xote', 'xaxado'] },
+  { id: 'piseiro', label: 'Piseiro e arrocha', termos: ['piseiro', 'arrocha', 'brega funk'] },
+  { id: 'brega', label: 'Brega', termos: ['brega', 'tecnobrega', 'calypso'] },
+  { id: 'rapnacional', label: 'Rap nacional', termos: ['rap nacional', 'hip hop brasileiro', 'trap brasileiro'] },
+  { id: 'axe', label: 'Axe e frevo', termos: ['axe', 'frevo', 'maracatu', 'carnaval'] },
   { id: 'choro', label: 'Choro', termos: ['choro', 'chorinho'] },
+
+  // Daqui para baixo, o resto do mundo.
+  { id: 'rock', label: 'Rock', termos: ['rock'] },
   { id: 'pop', label: 'Pop', termos: ['pop'] },
   { id: 'hiphop', label: 'Hip hop', termos: ['hip hop', 'rap'] },
   { id: 'eletronica', label: 'Eletronica', termos: ['electronic', 'techno', 'house'] },
+  { id: 'funk', label: 'Funk e groove', termos: ['funk', 'groove', 'disco'] },
   { id: 'jazz', label: 'Jazz', termos: ['jazz'] },
   { id: 'blues', label: 'Blues', termos: ['blues'] },
   { id: 'classica', label: 'Classica', termos: ['classical', 'orchestra', 'symphony'] },
@@ -118,10 +126,11 @@ export const GENRES: { id: string; label: string; termos: string[] }[] = [
   { id: 'metal', label: 'Metal', termos: ['metal', 'hardcore', 'punk'] },
   { id: 'gospel', label: 'Gospel', termos: ['gospel', 'worship', 'christian'] },
   { id: 'soul', label: 'Soul e R&B', termos: ['soul', 'rhythm and blues', 'motown'] },
+  { id: 'country', label: 'Country', termos: ['country', 'bluegrass', 'honky tonk'] },
   { id: 'latina', label: 'Latina', termos: ['latin', 'salsa', 'cumbia', 'tango'] },
   { id: 'africana', label: 'Africana', termos: ['afrobeat', 'african', 'highlife'] },
   { id: 'kpop', label: 'Asiatica', termos: ['k-pop', 'j-pop', 'asian'] },
-  { id: 'folk', label: 'Folk', termos: ['folk', 'acoustic', 'bluegrass'] },
+  { id: 'folk', label: 'Folk', termos: ['folk', 'acoustic'] },
   { id: 'lofi', label: 'Lo-fi e chill', termos: ['lo-fi', 'chillout', 'downtempo'] },
   { id: 'ambiente', label: 'Ambiente', termos: ['ambient', 'drone', 'new age'] },
   { id: 'trilha', label: 'Trilhas', termos: ['soundtrack', 'film score', 'video game music'] },
@@ -153,6 +162,18 @@ function termsOf(query: string): string[] {
 const SEARCH_FIELDS = ['title', 'creator', 'subject', 'description', 'identifier'];
 
 /**
+ * As duas grafias de uma palavra com acento: como veio e sem acento nenhum.
+ *
+ * Quem cataloga escreve "Marilia", quem procura escreve "Marilia" ou
+ * "Marilia" - e nem o acervo nem o teclado do celular concordam sobre isso.
+ * Procurar pelas duas custa um OR e recupera tudo que a acentuacao escondia.
+ */
+function variantsOf(term: string): string[] {
+  const semAcento = term.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return semAcento === term ? [term] : [term, semAcento];
+}
+
+/**
  * Monta a consulta. A regra e alcancar o maximo de acervo possivel:
  *
  * - cada palavra digitada precisa aparecer em algum campo do item, mas nao
@@ -160,6 +181,7 @@ const SEARCH_FIELDS = ['title', 'creator', 'subject', 'description', 'identifier
  *   e cujo titulo e Construcao;
  * - procura tambem na etiqueta de genero e na descricao, e nao so no titulo,
  *   que era o que fazia buscar por estilo nao devolver nada;
+ * - cada palavra vai com e sem acento, porque o acervo tem as duas grafias;
  * - o filtro de formato aceita tudo que o navegador toca, e nao so MP3 - isso
  *   sozinho ja destrava as colecoes que so tem Ogg ou FLAC;
  * - sem termo nenhum, varre o acervo de audio inteiro em vez de duas colecoes
@@ -170,7 +192,10 @@ export function buildQuery(query: string, genreId?: string): string {
   const partes = ['mediatype:(audio)', `format:(${formatos})`];
 
   for (const termo of termsOf(query)) {
-    partes.push(`(${SEARCH_FIELDS.map((campo) => `${campo}:(${termo})`).join(' OR ')})`);
+    const alternativas = variantsOf(termo).flatMap((forma) =>
+      SEARCH_FIELDS.map((campo) => `${campo}:(${forma})`),
+    );
+    partes.push(`(${alternativas.join(' OR ')})`);
   }
 
   const genero = GENRES.find((item) => item.id === genreId);
