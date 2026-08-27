@@ -1,5 +1,5 @@
 /** De onde a faixa veio. */
-export type TrackSource = 'local' | 'acervo';
+export type TrackSource = 'local' | 'acervo' | 'radio';
 
 export type RepeatMode = 'off' | 'all' | 'one';
 
@@ -43,6 +43,10 @@ export interface Track {
   license?: string;
   remoteCoverUrl?: string;
 
+  // --- Somente radio ao vivo ---
+  /** Identificador da estacao no Radio Browser. */
+  radioUuid?: string;
+
   /** Ha uma capa guardada no IndexedDB para esta faixa. */
   hasCover: boolean;
   /** Quando a capa mudou. Invalida o cache de object URL na interface. */
@@ -70,6 +74,21 @@ export interface ArchiveAlbum {
   coverUrl: string;
   /** Etiquetas do acervo, quase sempre o genero e o estilo. */
   tags?: string[];
+}
+
+/** Uma estacao de radio do catalogo aberto do Radio Browser. */
+export interface RadioStation {
+  uuid: string;
+  name: string;
+  streamUrl: string;
+  homepage?: string;
+  favicon?: string;
+  tags: string[];
+  country?: string;
+  countryCode?: string;
+  codec?: string;
+  bitrate?: number;
+  clicks?: number;
 }
 
 /** Uma linha da letra. `time` e NaN quando a letra nao tem sincronia. */
