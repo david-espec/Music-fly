@@ -13,6 +13,7 @@ export function PlayerBar({ onOpenLyrics }: { onOpenLyrics: () => void }) {
 
   if (!track) return null;
 
+  const aoVivo = track.source === 'radio';
   const progress =
     player.duration > 0 ? Math.min(player.currentTime / player.duration, 1) * 100 : 0;
 
@@ -31,32 +32,37 @@ export function PlayerBar({ onOpenLyrics }: { onOpenLyrics: () => void }) {
           <span className="playerbar__info">
             <span className="playerbar__title">{track.title}</span>
             <span className="playerbar__artist">
-              {player.isLoading ? 'Carregando...' : track.artist}
+              {aoVivo && !player.isLoading && <span className="live">Ao vivo</span>}
+              {player.isLoading ? 'Sintonizando...' : track.artist}
             </span>
           </span>
         </button>
 
         <div className="playerbar__center">
           <PlayerControls />
-          <div className="playerbar__seek">
-            <SeekBar
-              currentTime={player.currentTime}
-              duration={player.duration}
-              onSeek={player.seek}
-            />
-          </div>
+          {!aoVivo && (
+            <div className="playerbar__seek">
+              <SeekBar
+                currentTime={player.currentTime}
+                duration={player.duration}
+                onSeek={player.seek}
+              />
+            </div>
+          )}
         </div>
 
         <div className="playerbar__volume">
-          <button
-            type="button"
-            className="icon-button playerbar__lyrics"
-            aria-label="Ver a letra"
-            title="Ver a letra"
-            onClick={onOpenLyrics}
-          >
-            <LyricsIcon />
-          </button>
+          {!aoVivo && (
+            <button
+              type="button"
+              className="icon-button playerbar__lyrics"
+              aria-label="Ver a letra"
+              title="Ver a letra"
+              onClick={onOpenLyrics}
+            >
+              <LyricsIcon />
+            </button>
+          )}
           <button
             type="button"
             className="icon-button"

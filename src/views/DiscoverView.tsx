@@ -12,6 +12,7 @@ import { useLibrary } from '../library/LibraryContext';
 import { usePlayer } from '../player/PlayerContext';
 import { useToast } from '../components/Toast';
 import { TrackList } from '../components/TrackList';
+import { RadioPanel } from './RadioPanel';
 import { plural } from '../lib/format';
 import {
   ChevronDownIcon,
@@ -39,6 +40,12 @@ export function DiscoverView() {
   const player = usePlayer();
   const notify = useToast();
 
+  /*
+   * Acervo e radio nao viram duas abas na barra de baixo: cinco ja e o que
+   * cabe num celular estreito. Como as duas respondem a mesma pergunta - "o
+   * que eu ouco agora?" -, dividem a Descobrir.
+   */
+  const [aba, setAba] = useState<'acervo' | 'radio'>('acervo');
   const [query, setQuery] = useState('');
   const [genre, setGenre] = useState<string | null>(null);
   const [sort, setSort] = useState(SORTS[0].id);
@@ -274,12 +281,38 @@ export function DiscoverView() {
         <div>
           <h1>Descobrir</h1>
           <p className="view__subtitle">
-            Acervo publico do Internet Archive: milhoes de gravacoes de livre distribuicao, de
-            todo genero e de todo canto, sem anuncios e sem cadastro.
+            {aba === 'acervo'
+              ? 'Acervo publico do Internet Archive: milhoes de gravacoes de livre distribuicao, de todo genero e de todo canto, sem anuncios e sem cadastro.'
+              : 'Radio ao vivo, do catalogo aberto do Radio Browser.'}
           </p>
         </div>
       </header>
 
+      <div className="segmented" role="tablist" aria-label="Onde procurar">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={aba === 'acervo'}
+          className={aba === 'acervo' ? 'is-active' : ''}
+          onClick={() => setAba('acervo')}
+        >
+          Acervo
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={aba === 'radio'}
+          className={aba === 'radio' ? 'is-active' : ''}
+          onClick={() => setAba('radio')}
+        >
+          Radio ao vivo
+        </button>
+      </div>
+
+      {aba === 'radio' && <RadioPanel />}
+
+      {aba === 'acervo' && (
+        <>
       {!online && (
         <div className="notice">
           <OfflineIcon width={18} height={18} />
@@ -408,6 +441,8 @@ export function DiscoverView() {
             Carregar mais
           </button>
         </div>
+      )}
+        </>
       )}
     </section>
   );

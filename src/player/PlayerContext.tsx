@@ -78,6 +78,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const shouldPlayRef = useRef(false);
   /** Ultima faixa ja contabilizada no historico; evita recontar ao despausar. */
   const playedRef = useRef<string | null>(null);
+  /*
+   * Radio ao vivo. Um stream nao tem inicio, fim nem posicao: nao da para
+   * pular, retomar de onde parou nem contabilizar "quanto da faixa foi
+   * ouvido". Os ouvintes de audio ficam registrados uma vez so, entao a marca
+   * vai numa ref, e nao no estado.
+   */
+  const liveRef = useRef(false);
   /** Posicao do ultimo aviso de progresso, para medir quanto foi ouvido. */
   const lastReportRef = useRef(0);
   /** Retomar a posicao salva vale so para a primeira carga da faixa. */
@@ -205,6 +212,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const id = playedRef.current;
     if (!audio || !id) return;
 
+    // Numa radio a posicao e so ha quanto tempo a conexao esta aberta: somar
+    // isso ao tempo ouvido inflaria as estatisticas com o que nem e faixa.
+    if (liveRef.current) return;
+
     const position = audio.currentTime;
     const delta = position - lastReportRef.current;
     lastReportRef.current = position;
@@ -233,6 +244,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const currentId = current?.id ?? null;
   const currentTitle = current?.title ?? '';
   const currentStreamUrl = current?.streamUrl ?? null;
+  const currentIsLive = current?.source === 'radio';
   const currentDuration = current?.duration ?? 0;
   const currentProgress = current?.progressSeconds ?? 0;
 
@@ -287,7 +299,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       const minima = Math.max(3, currentDuration * 0.05);
       const limite = currentDuration > 0 ? currentDuration * 0.95 : Number.POSITIVE_INFINITY;
       const valeRetomar = currentProgress > minima && currentProgress < limite;
-      resumeToRef.current = resumeEnabled && valeRetomar ? currentProgress : null;
+      // Ao vivo nao ha ponto de retomada: entrar e sempre entrar no agora.
+      liveRef.current = currentIsLive;
+      resumeToRef.current =
+        !currentIsLive && resumeEnabled && valeRetomar ? currentProgress : null;
 
       audio.src = src;
       audio.load();
@@ -303,7 +318,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         }
       }
     })();
-  }, [currentId, currentStreamUrl, currentTitle, currentDuration, currentProgress, resumeEnabled, notify]);
+  }, [
+    currentId,
+    currentStreamUrl,
+    currentTitle,
+    currentDuration,
+    currentProgress,
+    currentIsLive,
+    resumeEnabled,
+    notify,
+  ]);
 
   // Libera o ultimo object URL ao desmontar.
   useEffect(
@@ -355,6 +379,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     };
 
     const onEnded = () => {
+      // Radio nao acaba: se o elemento disse que acabou, a conexao caiu.
+      if (liveRef.current) {
+        setIsPlaying(false);
+        notify(`A transmissao de "${currentTitle}" foi interrompida.`, 'erro');
+        return;
+      }
       reportProgress(true);
       if (repeat === 'one') {
         restartCurrent();
@@ -470,14 +500,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const seek = useCallback((seconds: number) => {
     const audio = audioRef.current;
-    if (!audio || !Number.isFinite(seconds)) return;
+    if (!audio || liveRef.current || !Number.isFinite(seconds)) return;
     audio.currentTime = Math.max(0, seconds);
     setCurrentTime(audio.currentTime);
   }, []);
 
   const seekBy = useCallback((delta: number) => {
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio || liveRef.current) return;
     const limit = Number.isFinite(audio.duration) ? audio.duration : Infinity;
     audio.currentTime = Math.max(0, Math.min(limit, audio.currentTime + delta));
     setCurrentTime(audio.currentTime);

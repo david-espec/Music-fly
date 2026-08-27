@@ -28,6 +28,7 @@ export function NowPlaying({ onClose }: { onClose: () => void }) {
 
   if (!track) return null;
 
+  const aoVivo = track.source === 'radio';
   const license = licenseLabel(track.license);
   const lyricsState = library.lyricsFor(track.id);
   const lyrics = lyricsState?.status === 'pronta' ? lyricsState.lyrics : null;
@@ -41,10 +42,12 @@ export function NowPlaying({ onClose }: { onClose: () => void }) {
           <ChevronDownIcon width={24} height={24} />
         </button>
         <span className="nowplaying__source">
-          {track.source === 'local' ? 'Da sua biblioteca' : 'Acervo livre'}
+          {track.source === 'local' && 'Da sua biblioteca'}
+          {track.source === 'acervo' && 'Acervo livre'}
+          {aoVivo && <span className="live">Ao vivo</span>}
         </span>
         <span className="nowplaying__panes">
-          <button
+          {!aoVivo && <button
             type="button"
             className={`icon-button ${pane === 'letra' ? 'is-active' : ''}`}
             aria-label="Letra da musica"
@@ -52,7 +55,7 @@ export function NowPlaying({ onClose }: { onClose: () => void }) {
             onClick={() => togglePane('letra')}
           >
             <LyricsIcon width={22} height={22} />
-          </button>
+          </button>}
           <button
             type="button"
             className={`icon-button ${pane === 'fila' ? 'is-active' : ''}`}
@@ -168,11 +171,17 @@ export function NowPlaying({ onClose }: { onClose: () => void }) {
           )}
         </div>
 
-        <SeekBar
-          currentTime={player.currentTime}
-          duration={player.duration}
-          onSeek={player.seek}
-        />
+        {aoVivo ? (
+          <p className="nowplaying__liveNote">
+            Transmissao ao vivo: nao da para adiantar, voltar nem guardar offline.
+          </p>
+        ) : (
+          <SeekBar
+            currentTime={player.currentTime}
+            duration={player.duration}
+            onSeek={player.seek}
+          />
+        )}
         <PlayerControls size="large" />
       </div>
     </div>
