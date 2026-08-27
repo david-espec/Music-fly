@@ -2443,16 +2443,32 @@ mark {
 /* --- Celular ------------------------------------------------------------- */
 
 @media (max-width: 860px) {
+  :root {
+    /*
+     * --nav-h e a altura real da barra de abas, medida no App e publicada
+     * aqui (ja inclui a area segura de baixo). O valor abaixo e so o chute
+     * do primeiro quadro, antes de a medida chegar.
+     *
+     * Antes isto era um 64px fixo no meio dos calc(), e a barra media 74px:
+     * o player ficava 10px por baixo das abas, colado.
+     */
+    --nav-h: 74px;
+    --player-h: 62px;
+
+    /* Respiro entre o cartao do player e a barra de abas. */
+    --player-gap: 12px;
+  }
+
   .app {
     grid-template-columns: 1fr;
   }
 
   .main {
-    padding-bottom: calc(64px + var(--safe-b) + 16px);
+    padding-bottom: calc(var(--nav-h) + 16px);
   }
 
   .app--playing .main {
-    padding-bottom: calc(64px + 62px + var(--safe-b) + 16px);
+    padding-bottom: calc(var(--nav-h) + var(--player-gap) + var(--player-h) + 16px);
   }
 
   .nav {
@@ -2514,8 +2530,8 @@ mark {
     overflow: hidden;
     left: 8px;
     right: 8px;
-    bottom: calc(64px + var(--safe-b));
-    height: 62px;
+    bottom: calc(var(--nav-h) + var(--player-gap));
+    height: var(--player-h);
     padding: 0 8px 0 8px;
     border: 1px solid var(--line);
     border-radius: 14px;
@@ -2549,7 +2565,7 @@ mark {
   }
 
   .toasts {
-    bottom: calc(64px + 62px + var(--safe-b) + 12px);
+    bottom: calc(var(--nav-h) + var(--player-gap) + var(--player-h) + 12px);
   }
 
   .toolbar__play {

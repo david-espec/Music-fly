@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ViewId } from './types';
 import { usePlayer } from './player/PlayerContext';
 import { HomeView } from './views/HomeView';
@@ -38,6 +38,28 @@ export function App() {
   const [view, setView] = useState<ViewId>('inicio');
   const [online, setOnline] = useState(navigator.onLine);
   const player = usePlayer();
+  const navRef = useRef<HTMLElement>(null);
+
+  /*
+   * No celular a barra de abas fica fixa no rodape e o player flutua logo
+   * acima dela. A altura da barra depende da fonte que o aparelho acabou
+   * usando, entao chutar um numero no CSS deixava o player por baixo dela.
+   * Aqui a altura medida vira --nav-h e o CSS se apoia nela.
+   */
+  useEffect(() => {
+    const element = navRef.current;
+    if (!element || typeof ResizeObserver === 'undefined') return;
+    const publish = () => {
+      document.documentElement.style.setProperty(
+        '--nav-h',
+        `${element.getBoundingClientRect().height}px`,
+      );
+    };
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -96,7 +118,7 @@ export function App() {
 
   return (
     <div className={`app ${player.current ? 'app--playing' : ''}`}>
-      <nav className="nav" aria-label="Secoes">
+      <nav className="nav" aria-label="Secoes" ref={navRef}>
         <div className="nav__brand">Music Fly</div>
         <ul>
           {NAV.map(({ id, label, icon: Icon }) => (
