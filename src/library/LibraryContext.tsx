@@ -65,6 +65,10 @@ interface LibraryValue {
   /** Troca a capa por uma imagem escolhida, ou remove passando null. */
   setTrackCover: (id: string, image: File | null) => Promise<void>;
   removeTrack: (id: string) => Promise<void>;
+  /** Curte ou descurte uma faixa (RF34, RF35). */
+  toggleLike: (id: string) => Promise<void>;
+  /** Zera contagens, tempo ouvido e posicao salva de todas as faixas (RF62). */
+  clearHistory: () => Promise<void>;
   saveArchiveTracks: (tracks: Track[]) => Promise<Track[]>;
   downloadForOffline: (track: Track) => Promise<void>;
   removeOffline: (track: Track) => Promise<void>;
@@ -136,9 +140,33 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       on('track-played', (id) => {
         const found = tracksRef.current.find((track: Track) => track.id === id);
         if (!found) return;
-        const played: Track = { ...found, lastPlayedAt: Date.now() };
+        // RN15: toda reproducao iniciada entra no historico.
+        const played: Track = {
+          ...found,
+          lastPlayedAt: Date.now(),
+          playCount: (found.playCount ?? 0) + 1,
+        };
         void putTrack(played);
         setTracks((current) => current.map((track) => (track.id === id ? played : track)));
+      }),
+    [],
+  );
+
+  // Tempo ouvido e posicao de retomada (RN16, RN17, RN18).
+  useEffect(
+    () =>
+      on('playback-progress', ({ id, position, listened, completed }) => {
+        const found = tracksRef.current.find((track: Track) => track.id === id);
+        if (!found) return;
+        const updated: Track = {
+          ...found,
+          totalSeconds: Math.round((found.totalSeconds ?? 0) + listened),
+          // Ao terminar, a proxima escuta comeca do inicio.
+          progressSeconds: completed ? 0 : Math.round(position),
+          completed,
+        };
+        void putTrack(updated);
+        setTracks((current) => current.map((track) => (track.id === id ? updated : track)));
       }),
     [],
   );
@@ -352,6 +380,31 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     },
     [],
   );
+
+  const toggleLike = useCallback(async (id: string) => {
+    const found = tracksRef.current.find((track: Track) => track.id === id);
+    if (!found) return;
+    const liked = !found.liked;
+    // Um booleano por faixa ja satisfaz a RN13: nao ha como curtir duas vezes.
+    const updated: Track = { ...found, liked, likedAt: liked ? Date.now() : undefined };
+    await putTrack(updated);
+    setTracks((current) => current.map((track) => (track.id === id ? updated : track)));
+    emit('track-updated', updated);
+  }, []);
+
+  const clearHistory = useCallback(async () => {
+    const limpas = tracksRef.current.map((track: Track) => ({
+      ...track,
+      lastPlayedAt: undefined,
+      playCount: 0,
+      totalSeconds: 0,
+      progressSeconds: 0,
+      completed: false,
+    }));
+    await Promise.all(limpas.map((track) => putTrack(track)));
+    setTracks(limpas);
+    notify('Historico de reproducao apagado.', 'sucesso');
+  }, [notify]);
 
   // --- Acervo livre ----------------------------------------------------------
 
@@ -671,6 +724,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       updateTrack,
       setTrackCover,
       removeTrack,
+      toggleLike,
+      clearHistory,
       saveArchiveTracks,
       downloadForOffline,
       removeOffline,
@@ -689,7 +744,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     }),
     [
       tracks, playlists, loading, importProgress, downloading, importFiles, updateTrack,
-      setTrackCover, removeTrack,
+      setTrackCover, removeTrack, toggleLike, clearHistory,
       saveArchiveTracks, downloadForOffline, removeOffline, createPlaylist, renamePlaylist,
       removePlaylist, addToPlaylist, removeFromPlaylist, movePlaylistTrack, lyricsFor,
       loadLyrics, searchLyricsOnline, attachLrcFile, setLyricsOffset, removeLyrics,

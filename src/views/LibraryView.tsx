@@ -17,18 +17,22 @@ import {
   TrashIcon,
 } from '../components/Icons';
 
-type Section = 'playlists' | 'albuns' | 'artistas';
+type Section = 'playlists' | 'albuns' | 'artistas' | 'curtidas' | 'downloads';
 
 /** O que esta aberto no detalhe. */
 type Opened =
   | { kind: 'playlist'; id: string }
   | { kind: 'album'; key: string }
-  | { kind: 'artista'; key: string };
+  | { kind: 'artista'; key: string }
+  | { kind: 'curtidas' }
+  | { kind: 'downloads' };
 
 const SECTIONS: { key: Section; label: string }[] = [
   { key: 'playlists', label: 'Playlists' },
   { key: 'albuns', label: 'Albuns' },
   { key: 'artistas', label: 'Artistas' },
+  { key: 'curtidas', label: 'Curtidas' },
+  { key: 'downloads', label: 'Downloads' },
 ];
 
 interface Collection {
@@ -87,6 +91,16 @@ export function LibraryView({ onOpenAbout }: { onOpenAbout: () => void }) {
 
   const byId = useMemo(() => new Map(tracks.map((track) => [track.id, track])), [tracks]);
   const albums = useMemo(() => groupBy(tracks, 'album'), [tracks]);
+  /** RF37: musicas curtidas, das mais recentes para as mais antigas. */
+  const liked = useMemo(
+    () => tracks.filter((t) => t.liked).sort((a, b) => (b.likedAt ?? 0) - (a.likedAt ?? 0)),
+    [tracks],
+  );
+  /** RF48: o que toca sem internet. */
+  const offline = useMemo(
+    () => tracks.filter((t) => t.offline).sort((a, b) => b.addedAt - a.addedAt),
+    [tracks],
+  );
   const artists = useMemo(() => groupBy(tracks, 'artista'), [tracks]);
 
   // --- Detalhe de uma playlist, album ou artista -----------------------------
@@ -102,11 +116,21 @@ export function LibraryView({ onOpenAbout }: { onOpenAbout: () => void }) {
           : undefined;
 
     // Faixas apagadas somem da playlist; a ordem salva e mantida.
-    const detailTracks = playlist
-      ? playlist.trackIds.map((id) => byId.get(id)).filter((track) => track !== undefined)
-      : (collection?.tracks ?? []);
+    const detailTracks =
+      opened.kind === 'curtidas'
+        ? liked
+        : opened.kind === 'downloads'
+          ? offline
+          : playlist
+            ? playlist.trackIds.map((id) => byId.get(id)).filter((track) => track !== undefined)
+            : (collection?.tracks ?? []);
 
-    const name = playlist?.name ?? collection?.name ?? '';
+    const name =
+      opened.kind === 'curtidas'
+        ? 'Musicas curtidas'
+        : opened.kind === 'downloads'
+          ? 'Disponiveis offline'
+          : (playlist?.name ?? collection?.name ?? '');
     const total = detailTracks.reduce((sum, track) => sum + track.duration, 0);
 
     const extraActions = playlist
@@ -173,9 +197,13 @@ export function LibraryView({ onOpenAbout }: { onOpenAbout: () => void }) {
           tracks={detailTracks}
           extraActions={extraActions}
           emptyMessage={
-            playlist
-              ? 'Playlist vazia. Use o menu de uma musica para adiciona-la aqui.'
-              : 'Nada por aqui.'
+            opened.kind === 'curtidas'
+              ? 'Nenhuma musica curtida ainda. Toque no coracao de uma faixa.'
+              : opened.kind === 'downloads'
+                ? 'Nenhuma musica guardada para ouvir offline.'
+                : playlist
+                  ? 'Playlist vazia. Use o menu de uma musica para adiciona-la aqui.'
+                  : 'Nada por aqui.'
           }
         />
       </section>
@@ -196,8 +224,10 @@ export function LibraryView({ onOpenAbout }: { onOpenAbout: () => void }) {
           <h1>Sua biblioteca</h1>
           <p className="view__subtitle">
             {plural(playlists.length, 'playlist', 'playlists')},{' '}
-            {plural(albums.length, 'album', 'albuns')} e{' '}
-            {plural(artists.length, 'artista', 'artistas')}
+            {plural(albums.length, 'album', 'albuns')},{' '}
+            {plural(artists.length, 'artista', 'artistas')},{' '}
+            {plural(liked.length, 'curtida', 'curtidas')} e{' '}
+            {offline.length} offline
           </p>
         </div>
         <button
@@ -326,6 +356,15 @@ export function LibraryView({ onOpenAbout }: { onOpenAbout: () => void }) {
             </ul>
           )}
         </>
+      ) : section === 'curtidas' || section === 'downloads' ? (
+        <TrackList
+          tracks={section === 'curtidas' ? liked : offline}
+          emptyMessage={
+            section === 'curtidas'
+              ? 'Nenhuma musica curtida ainda. Toque no coracao de uma faixa na aba Inicio.'
+              : 'Nenhuma musica guardada para ouvir offline.'
+          }
+        />
       ) : (
         <>
           <label className="search search--filter">

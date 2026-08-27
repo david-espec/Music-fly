@@ -14,6 +14,7 @@ import {
   CloudIcon,
   DownloadIcon,
   EditIcon,
+  HeartIcon,
   OfflineIcon,
   PauseIcon,
   PlayIcon,
@@ -169,6 +170,17 @@ export function TrackList({
                   </span>
                 )}
               </div>
+
+              <button
+                type="button"
+                className={`icon-button track__like ${track.liked ? 'is-liked' : ''}`}
+                aria-label={track.liked ? `Descurtir ${track.title}` : `Curtir ${track.title}`}
+                aria-pressed={track.liked ?? false}
+                disabled={!inLibrary}
+                onClick={() => void library.toggleLike(track.id)}
+              >
+                <HeartIcon width={18} height={18} filled={track.liked} />
+              </button>
 
               {isDownloading ? (
                 <span className="track__progress" aria-label="Baixando">

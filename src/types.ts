@@ -17,6 +17,21 @@ export interface Track {
   /** Quando esta faixa comecou a tocar pela ultima vez. */
   lastPlayedAt?: number;
 
+  // --- Curtidas (RF34, RF35, RF37) ---
+  /** Um booleano ja garante a RN13: uma curtida por faixa, sem repetir. */
+  liked?: boolean;
+  likedAt?: number;
+
+  // --- Historico e estatisticas (RF41, RF54 a RF57) ---
+  /** Quantas reproducoes foram iniciadas (RN15). */
+  playCount?: number;
+  /** Segundos realmente ouvidos, somados entre as reproducoes. */
+  totalSeconds?: number;
+  /** Onde a reproducao parou, para retomar depois (RN17, RN18). */
+  progressSeconds?: number;
+  /** A ultima reproducao chegou ao fim. */
+  completed?: boolean;
+
   // --- Somente faixas locais ---
   fileName?: string;
   mimeType?: string;

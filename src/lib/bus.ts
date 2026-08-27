@@ -9,6 +9,13 @@ type EventMap = {
   'track-updated': Track;
   'duration-resolved': { id: string; duration: number };
   'track-played': string;
+  /** Avanco da escuta: posicao atual e quanto foi ouvido desde o ultimo aviso. */
+  'playback-progress': {
+    id: string;
+    position: number;
+    listened: number;
+    completed: boolean;
+  };
 };
 
 type Handler<K extends keyof EventMap> = (payload: EventMap[K]) => void;

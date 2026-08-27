@@ -5,7 +5,7 @@ import { usePlayer } from '../player/PlayerContext';
 import { TrackList } from '../components/TrackList';
 import { CardRow, type Card } from '../components/CardRow';
 import { formatDuration, plural } from '../lib/format';
-import { searchGroups, searchTracks, terms } from '../lib/search';
+import { searchGroups, searchPlaylists, searchTracks, terms } from '../lib/search';
 import {
   CloseIcon,
   DownloadIcon,
@@ -30,7 +30,7 @@ const SORTS: { key: SortKey; label: string }[] = [
 const ROW_LIMIT = 12;
 
 export function HomeView() {
-  const { tracks, loading, importFiles, importProgress } = useLibrary();
+  const { tracks, playlists, loading, importFiles, importProgress } = useLibrary();
   const player = usePlayer();
 
   const [query, setQuery] = useState('');
@@ -60,6 +60,12 @@ export function HomeView() {
     () => (searching ? searchGroups(tracks, query, 'album').slice(0, ROW_LIMIT) : []),
     [query, searching, tracks],
   );
+  /** RF46: playlists tambem entram nos resultados. */
+  const playlistHits = useMemo(
+    () => (searching ? searchPlaylists(playlists, query).slice(0, ROW_LIMIT) : []),
+    [playlists, query, searching],
+  );
+  const trackById = useMemo(() => new Map(tracks.map((t) => [t.id, t])), [tracks]);
 
   const visible = useMemo(() => {
     // Com busca ativa, quem manda e a relevancia, nao a ordenacao escolhida.
@@ -388,11 +394,32 @@ export function HomeView() {
                 }))}
               />
 
-              {visible.length === 0 && artistHits.length === 0 && albumHits.length === 0 && (
-                <p className="empty">
-                  Nada encontrado para "{query.trim()}". Tente outra palavra, ou parte dela.
-                </p>
-              )}
+              <CardRow
+                title="Playlists"
+                cards={playlistHits.flatMap((hit) => {
+                  const faixas = hit.playlist.trackIds
+                    .map((id) => trackById.get(id))
+                    .filter((t) => t !== undefined);
+                  // Sem faixas nao ha capa para desenhar o cartao.
+                  if (faixas.length === 0) return [];
+                  return [{
+                    key: hit.playlist.id,
+                    title: hit.playlist.name,
+                    subtitle: plural(faixas.length, 'musica', 'musicas'),
+                    cover: faixas[0],
+                    onPlay: () => player.playTracks(faixas, 0),
+                  }];
+                })}
+              />
+
+              {visible.length === 0 &&
+                artistHits.length === 0 &&
+                albumHits.length === 0 &&
+                playlistHits.length === 0 && (
+                  <p className="empty">
+                    Nada encontrado para "{query.trim()}". Tente outra palavra, ou parte dela.
+                  </p>
+                )}
             </>
           )}
         </>

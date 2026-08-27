@@ -2,7 +2,7 @@
  * Busca da biblioteca: todos os termos precisam casar, em qualquer ordem, e o
  * resultado sai ordenado por relevancia.
  */
-import type { Track } from '../types';
+import type { Playlist, Track } from '../types';
 
 /**
  * Minusculas e sem acentos, **preservando o tamanho do texto**.
@@ -165,6 +165,40 @@ export function searchGroups(
   }
 
   return hits.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'pt-BR'));
+}
+
+export interface PlaylistHit {
+  playlist: Playlist;
+  score: number;
+}
+
+/** Playlists cujo nome casa com a busca (RF46). */
+export function searchPlaylists(playlists: Playlist[], query: string): PlaylistHit[] {
+  const parts = terms(query);
+  if (parts.length === 0) return [];
+
+  const whole = parts.join(' ');
+  const hits: PlaylistHit[] = [];
+
+  for (const playlist of playlists) {
+    const folded = fold(playlist.name);
+    let total = 0;
+    let matchedAll = true;
+
+    for (const term of parts) {
+      const score = scoreField(folded, term);
+      if (score === 0) {
+        matchedAll = false;
+        break;
+      }
+      total += score;
+    }
+    if (!matchedAll) continue;
+    if (folded === whole) total += 400;
+    hits.push({ playlist, score: total });
+  }
+
+  return hits.sort((a, b) => b.score - a.score || a.playlist.name.localeCompare(b.playlist.name, 'pt-BR'));
 }
 
 /**

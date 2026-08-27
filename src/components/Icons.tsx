@@ -148,6 +148,28 @@ export const PlusIcon = (p: IconProps) => (
   </Icon>
 );
 
+export const HeartIcon = ({ filled = false, ...p }: IconProps & { filled?: boolean }) => (
+  <Icon {...p}>
+    <path
+      d="M12 20.2l-7.1-7a4.6 4.6 0 116.5-6.5l.6.6.6-.6a4.6 4.6 0 116.5 6.5z"
+      fill={filled ? 'currentColor' : 'none'}
+    />
+  </Icon>
+);
+
+export const StatsIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+  </Icon>
+);
+
+export const SettingsIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="12" cy="12" r="3.1" />
+    <path d="M19.4 14.6a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-2.7 1.1v.2a2 2 0 11-4 0v-.1a1.6 1.6 0 00-2.8-1.1l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00-1.1-2.7h-.2a2 2 0 110-4h.1a1.6 1.6 0 001.1-2.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 002.7-1.1V3a2 2 0 114 0v.1a1.6 1.6 0 002.8 1.1l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 001.1 2.7h.2a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z" />
+  </Icon>
+);
+
 export const EditIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M4 20h4.2L19 9.2a2.1 2.1 0 00-3-3L5.2 17z" />

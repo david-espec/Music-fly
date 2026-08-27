@@ -28,6 +28,9 @@ interface PlayerValue {
   muted: boolean;
   repeat: RepeatMode;
   shuffle: boolean;
+  /** Continuar a musica de onde parou (RN18). */
+  resumeEnabled: boolean;
+  setResumeEnabled: (value: boolean) => void;
 
   /**
    * Tempo exato do audio agora. A letra sincronizada le isto a cada quadro:
@@ -66,6 +69,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const shouldPlayRef = useRef(false);
   /** Ultima faixa ja contabilizada no historico; evita recontar ao despausar. */
   const playedRef = useRef<string | null>(null);
+  /** Posicao do ultimo aviso de progresso, para medir quanto foi ouvido. */
+  const lastReportRef = useRef(0);
+  /** Retomar a posicao salva vale so para a primeira carga da faixa. */
+  const resumeToRef = useRef<number | null>(null);
 
   const [state, dispatch] = useReducer(queueReducer, emptyQueue);
   const { queue, order, index } = state;
@@ -78,6 +85,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [muted, setMuted] = useState(false);
   const [repeat, setRepeat] = useState<RepeatMode>('off');
   const [shuffle, setShuffle] = useState(false);
+  const [resumeEnabled, setResumeEnabled] = useState(true);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
 
   const currentQueuePosition = index >= 0 ? order[index] ?? -1 : -1;
@@ -88,17 +96,19 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let alive = true;
     void (async () => {
-      const [savedVolume, savedRepeat, savedShuffle, savedMuted] = await Promise.all([
+      const [savedVolume, savedRepeat, savedShuffle, savedMuted, savedResume] = await Promise.all([
         getPref('volume', 1),
         getPref<RepeatMode>('repeat', 'off'),
         getPref('shuffle', false),
         getPref('muted', false),
+        getPref('resume', true),
       ]);
       if (!alive) return;
       setVolumeState(savedVolume);
       setRepeat(savedRepeat);
       setShuffle(savedShuffle);
       setMuted(savedMuted);
+      setResumeEnabled(savedResume);
       setPrefsLoaded(true);
     })();
     return () => {
@@ -112,7 +122,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     void setPref('repeat', repeat);
     void setPref('shuffle', shuffle);
     void setPref('muted', muted);
-  }, [prefsLoaded, volume, repeat, shuffle, muted]);
+    void setPref('resume', resumeEnabled);
+  }, [prefsLoaded, volume, repeat, shuffle, muted, resumeEnabled]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -168,6 +179,26 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     [index, order.length, repeat, restartCurrent],
   );
 
+  /**
+   * Informa quanto foi ouvido desde o ultimo aviso. O tempo ouvido e medido
+   * pelo avanco da posicao, e nao pelo relogio: assim pular para frente nao
+   * conta como escuta, e ouvir o mesmo trecho de novo conta de novo.
+   */
+  const reportProgress = useCallback((completed = false) => {
+    const audio = audioRef.current;
+    const id = playedRef.current;
+    if (!audio || !id) return;
+
+    const position = audio.currentTime;
+    const delta = position - lastReportRef.current;
+    lastReportRef.current = position;
+    // Saltos para tras, ou pulos longos para frente, nao sao escuta.
+    const listened = delta > 0 && delta < 30 ? delta : 0;
+
+    if (listened === 0 && !completed) return;
+    emit('playback-progress', { id, position, listened, completed });
+  }, []);
+
   const next = useCallback(() => advance(1, false), [advance]);
 
   const previous = useCallback(() => {
@@ -187,6 +218,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const currentTitle = current?.title ?? '';
   const currentStreamUrl = current?.streamUrl ?? null;
   const currentDuration = current?.duration ?? 0;
+  const currentProgress = current?.progressSeconds ?? 0;
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -232,6 +264,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       }
       if (src.startsWith('blob:')) objectUrlRef.current = src;
 
+      // RN18: continuar de onde parou. Os limites sao proporcionais a faixa,
+      // e nao um numero fixo de segundos: 15 s sao muito numa vinheta de 30 s e
+      // pouco numa musica de 6 min. Retomar quase no comeco ou quase no fim
+      // atrapalha mais do que ajuda, entao esses casos comecam do zero.
+      const minima = Math.max(3, currentDuration * 0.05);
+      const limite = currentDuration > 0 ? currentDuration * 0.95 : Number.POSITIVE_INFINITY;
+      const valeRetomar = currentProgress > minima && currentProgress < limite;
+      resumeToRef.current = resumeEnabled && valeRetomar ? currentProgress : null;
+
       audio.src = src;
       audio.load();
       setCurrentTime(0);
@@ -246,7 +287,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         }
       }
     })();
-  }, [currentId, currentStreamUrl, currentTitle, currentDuration, notify]);
+  }, [currentId, currentStreamUrl, currentTitle, currentDuration, currentProgress, resumeEnabled, notify]);
 
   // Libera o ultimo object URL ao desmontar.
   useEffect(
@@ -267,16 +308,28 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setIsPlaying(true);
       if (currentId && playedRef.current !== currentId) {
         playedRef.current = currentId;
+        lastReportRef.current = audio.currentTime;
         emit('track-played', currentId);
       }
     };
-    const onPause = () => setIsPlaying(false);
+    const onPause = () => {
+      setIsPlaying(false);
+      // Guarda a posicao ao pausar: e o momento em que o usuario "parou".
+      reportProgress();
+    };
     const onWaiting = () => setIsLoading(true);
     const onPlaying = () => setIsLoading(false);
     const onTimeUpdate = () => setCurrentTime(audio.currentTime);
 
     const onLoadedMetadata = () => {
       setIsLoading(false);
+      // So aqui a duracao existe e definir currentTime tem efeito.
+      if (resumeToRef.current !== null) {
+        audio.currentTime = resumeToRef.current;
+        lastReportRef.current = resumeToRef.current;
+        setCurrentTime(resumeToRef.current);
+        resumeToRef.current = null;
+      }
       if (!Number.isFinite(audio.duration)) return;
       setDuration(audio.duration);
       // Faixas do acervo costumam chegar sem duracao confiavel nos metadados.
@@ -286,6 +339,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     };
 
     const onEnded = () => {
+      reportProgress(true);
       if (repeat === 'one') {
         restartCurrent();
         return;
@@ -303,6 +357,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       notify(`Nao foi possivel tocar "${currentTitle}".${hint}`, 'erro');
     };
 
+    // Um aviso a cada 5 s mantem as estatisticas em dia sem escrever no banco
+    // a cada quadro.
+    const ticker = window.setInterval(() => {
+      if (!audio.paused) reportProgress();
+    }, 5000);
+
     audio.addEventListener('play', onPlay);
     audio.addEventListener('pause', onPause);
     audio.addEventListener('waiting', onWaiting);
@@ -312,6 +372,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     audio.addEventListener('ended', onEnded);
     audio.addEventListener('error', onError);
     return () => {
+      window.clearInterval(ticker);
       audio.removeEventListener('play', onPlay);
       audio.removeEventListener('pause', onPause);
       audio.removeEventListener('waiting', onWaiting);
@@ -321,7 +382,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       audio.removeEventListener('ended', onEnded);
       audio.removeEventListener('error', onError);
     };
-  }, [advance, currentDuration, currentId, currentTitle, notify, repeat, restartCurrent]);
+  }, [advance, currentDuration, currentId, currentTitle, notify, repeat, reportProgress, restartCurrent]);
 
   useEffect(
     () =>
@@ -512,6 +573,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       muted,
       repeat,
       shuffle,
+      resumeEnabled,
+      setResumeEnabled,
       getCurrentTime,
       playTracks,
       addToQueue,
@@ -531,7 +594,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }),
     [
       queue, current, currentQueuePosition, isPlaying, isLoading, currentTime, duration,
-      volume, muted, repeat, shuffle, getCurrentTime, playTracks, addToQueue, playNextInQueue,
+      volume, muted, repeat, shuffle, resumeEnabled, getCurrentTime, playTracks, addToQueue, playNextInQueue,
       removeFromQueue, clearQueue, jumpTo, toggle, next, previous, seek, seekBy,
       setVolume, toggleMute, cycleRepeat, toggleShuffle,
     ],

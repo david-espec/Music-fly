@@ -549,6 +549,15 @@ mark {
   text-transform: none;
 }
 
+/* O coracao so ganha cor quando curtido; apagado, nao compete com o titulo. */
+.track__like.is-liked {
+  color: var(--danger);
+}
+
+.track:not(:hover) .track__like:not(.is-liked) {
+  opacity: 0.45;
+}
+
 .track__duration,
 .track__progress {
   font-variant-numeric: tabular-nums;
