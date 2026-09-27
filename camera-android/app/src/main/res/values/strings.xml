@@ -4,9 +4,12 @@
     <string name="take_photo">Tirar foto</string>
     <string name="switch_camera">Trocar câmera</string>
     <string name="open_last">Abrir última foto</string>
+    <string name="settings">Configurações</string>
     <string name="flash">Flash</string>
     <string name="timer">Temporizador</string>
-    <string name="grid">Grade</string>
+    <string name="aspect">Formato da foto</string>
+    <string name="resolution">Resolução</string>
+    <string name="grid">Linhas de grade</string>
     <string name="permission_text">Para tirar fotos, o app precisa acessar a câmera.</string>
     <string name="permission_button">Permitir câmera</string>
 </resources>

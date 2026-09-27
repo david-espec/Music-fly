@@ -16,21 +16,24 @@ Requer Android 8.0 ou mais novo.
 
 ## O que faz
 
-- **Qualidade máxima**: usa a maior resolução do sensor, inclusive os modos de
-  alta resolução (50 MP, 108 MP…) quando o aparelho libera, com o modo de
-  captura "máxima qualidade" do CameraX e JPEG em qualidade 100.
-- Visor em 3:4, o mesmo formato da foto.
+Tela no estilo da câmera da Samsung:
+
+- **Barra de cima**: configurações, flash, temporizador, formato da foto
+  (3:4, 9:16, 1:1 ou Full, a tela inteira), resolução e linhas de grade.
+- **Resolução**: toque no "12M"/"50M" para alternar entre a resolução padrão
+  (12 MP) e a máxima do sensor (50 MP, 108 MP… quando o aparelho libera). A
+  foto sai em JPEG qualidade 100, no modo "máxima qualidade" do CameraX.
+- **Zoom**: botões 1× e 2× (e grande-angular, se houver), ou pinçando a tela.
+- **Modos**: RETRATO, FOTO e VÍDEO (deslize na tela para trocar) e MAIS, com
+  Noite, HDR e Auto-retoque. Retrato, Noite, HDR e Retoque usam o
+  processamento do próprio fabricante e só aparecem onde o celular oferece.
+- **Vídeo** em Full HD ou 4K (toque em FHD/UHD), com som; o flash vira lanterna.
 - **Toque para focar** (foco, exposição e balanço de branco no ponto tocado).
-- **Zoom** pinçando a tela; toque no indicador para voltar a 1x.
-- **Flash**: desligado / automático / ligado.
 - **Temporizador** de 3 ou 10 s (toque de novo no disparador para cancelar).
-- **Grade** de regra dos terços.
-- Câmera traseira e frontal.
-- Botões de **volume** também tiram a foto.
-- Som do obturador e vibração ao fotografar; foto sai na orientação certa
-  mesmo com o celular deitado.
-- As fotos vão direto para a **galeria**, no álbum `Pictures/Foto`. A
-  miniatura no canto abre a última foto.
+- Botões de **volume** também disparam.
+- **Configurações**: som do obturador, espelhar selfies e disparo pelo volume.
+- Fotos vão para a galeria no álbum `Pictures/Foto`, vídeos em `Movies/Foto`.
+  A miniatura redonda abre o último arquivo.
 
 ## Como é gerado
 

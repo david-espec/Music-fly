@@ -2,8 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-feature android:name="android.hardware.camera.any" android:required="true" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Som dos videos. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- So o Android 8 e 9 precisam disto para gravar na galeria. -->
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
