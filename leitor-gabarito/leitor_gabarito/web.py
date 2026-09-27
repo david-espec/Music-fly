@@ -12,7 +12,7 @@ from html import escape
 
 import cv2
 import numpy as np
-from flask import Flask, request
+from flask import Flask, request, send_file
 
 from .processar import obter_gabarito, processar
 
@@ -35,6 +35,7 @@ td,th{{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left}} .ce
 .dupla{{color:var(--warn);font-weight:700}} .big{{font-size:2rem;font-weight:800}} .aviso{{color:var(--warn)}}
 .tabs a{{margin-right:14px}}
 </style></head><body><main>
+<nav class="tabs"><b>Corrigir gabarito</b> · <a href="/digitalizar">Digitalizar documento</a></nav>
 <h1>Leitor de Gabarito</h1>
 <p class="muted">Envie a foto da folha de respostas. As alternativas marcadas aparecem em <b style="color:var(--ok)">verde</b>;
 questões com duas respostas ficam destacadas em laranja.</p>
@@ -136,5 +137,68 @@ def criar_app() -> Flask:
             except Exception as e:
                 ctx["resultado"] = f'<div class="card"><b>Erro:</b> {escape(str(e))}</div>'
         return PAGINA.format(**ctx)
+
+    @app.route("/digitalizar", methods=["GET", "POST"])
+    def pagina_digitalizar():
+        from io import BytesIO
+
+        from .digitalizar import desenhar_deteccao, digitalizar, gerar_pdf
+
+        erro = ""
+        previa = ""
+        if request.method == "POST":
+            try:
+                filtro = request.form.get("filtro", "cor")
+                tamanho = request.form.get("pagina", "auto")
+                fotos = [f for f in request.files.getlist("fotos") if f and f.filename]
+                if not fotos:
+                    raise ValueError("Envie ao menos uma foto.")
+                paginas, deteccoes = [], []
+                for f in fotos:
+                    img = _ler_upload(f)
+                    pag = digitalizar(img, filtro, int(request.form.get("girar", 0)))
+                    paginas.append(pag.imagem)
+                    deteccoes.append((f.filename, pag, desenhar_deteccao(img, pag.cantos)))
+                nome = (request.form.get("nome") or "documento").strip() or "documento"
+                pdf = gerar_pdf(paginas, titulo=nome, tamanho=tamanho)
+                if request.form.get("acao") == "pdf":
+                    return send_file(BytesIO(pdf), mimetype="application/pdf", as_attachment=True,
+                                     download_name=f"{nome}.pdf")
+                previa = "".join(
+                    f'<div class="card res"><div><h3>{escape(n)} — '
+                    f'{"folha encontrada" if p.folha_encontrada else "folha não encontrada (foto inteira)"}</h3>'
+                    f'<img src="data:image/jpeg;base64,{_b64(d)}" alt="Folha identificada na foto"></div>'
+                    f'<div><h3>Página</h3><img src="data:image/jpeg;base64,{_b64(p.imagem)}" alt="Página digitalizada"></div></div>'
+                    for n, p, d in deteccoes)
+            except Exception as e:
+                erro = f'<div class="card"><b>Erro:</b> {escape(str(e))}</div>'
+        f = request.form
+        sel = lambda campo, v, padrao: " selected" if f.get(campo, padrao) == v else ""  # noqa: E731
+        form = f"""<form method="post" enctype="multipart/form-data">
+  <label>Fotos (cada uma vira uma página, na ordem escolhida)</label>
+  <input type="file" name="fotos" accept="image/*" multiple required>
+  <div class="row">
+    <div><label>Nome do documento</label><input type="text" name="nome" value="{escape(f.get('nome', 'documento'))}"></div>
+    <div><label>Filtro</label><select name="filtro">
+      <option value="cor"{sel('filtro', 'cor', 'cor')}>Cor (papel branco)</option>
+      <option value="cinza"{sel('filtro', 'cinza', 'cor')}>Cinza</option>
+      <option value="pb"{sel('filtro', 'pb', 'cor')}>Preto e branco</option>
+      <option value="original"{sel('filtro', 'original', 'cor')}>Original</option></select></div>
+    <div><label>Página do PDF</label><select name="pagina">
+      <option value="auto"{sel('pagina', 'auto', 'auto')}>Automático</option>
+      <option value="a4"{sel('pagina', 'a4', 'auto')}>A4</option>
+      <option value="carta"{sel('pagina', 'carta', 'auto')}>Carta</option></select></div>
+    <div><label>Girar</label><select name="girar">
+      <option value="0">Não</option><option value="90">90° horário</option>
+      <option value="180">180°</option><option value="270">90° anti-horário</option></select></div>
+  </div>
+  <button name="acao" value="previa">Ver prévia</button> <button name="acao" value="pdf">Baixar PDF</button>
+</form>"""
+        corpo = f"""<nav class="tabs"><a href="/">Corrigir gabarito</a> · <b>Digitalizar documento</b></nav>
+<h1>Digitalizar documento</h1>
+<p class="muted">A folha é encontrada na foto, a perspectiva é corrigida, a sombra some e as páginas viram um PDF.</p>
+{form}{erro}{previa}"""
+        cabeca = PAGINA.split("<main>")[0]
+        return f"{cabeca}<main>{corpo}</main></body></html>".replace("{{", "{").replace("}}", "}")
 
     return app

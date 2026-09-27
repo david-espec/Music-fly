@@ -1,6 +1,7 @@
 """Linha de comando.
 
     python -m leitor_gabarito ler fotos/*.jpg --gabarito "ABCDA..." --saida resultados
+    python -m leitor_gabarito digitalizar fotos/*.jpg --filtro pb --pdf contrato.pdf
     python -m leitor_gabarito gerar --questoes 30 --opcoes ABCD --colunas 3 --saida folha.png
     python -m leitor_gabarito web
 """
@@ -80,6 +81,34 @@ def cmd_ler(a) -> int:
     return 1 if falhas else 0
 
 
+def cmd_digitalizar(a) -> int:
+    from .digitalizar import desenhar_deteccao, digitalizar, gerar_pdf
+
+    fotos = _fotos(a.fotos)
+    if not fotos:
+        print("Nenhuma imagem encontrada.", file=sys.stderr)
+        return 2
+    pasta = Path(a.saida)
+    pasta.mkdir(parents=True, exist_ok=True)
+    paginas = []
+    for foto in fotos:
+        img = abrir_imagem(foto)
+        pag = digitalizar(img, a.filtro, a.girar)
+        situacao = "folha encontrada" if pag.folha_encontrada else "folha NAO encontrada, usada a foto inteira"
+        h, w = pag.imagem.shape[:2]
+        print(f"{foto}: {situacao} ({w}x{h})")
+        if a.imagens:
+            salvar_imagem(pasta / f"{foto.stem}_digitalizado.jpg", pag.imagem)
+        if a.deteccao:
+            salvar_imagem(pasta / f"{foto.stem}_deteccao.jpg", desenhar_deteccao(img, pag.cantos))
+        paginas.append(pag.imagem)
+    nome_pdf = Path(a.pdf) if a.pdf else pasta / "documento.pdf"
+    nome_pdf.parent.mkdir(parents=True, exist_ok=True)
+    nome_pdf.write_bytes(gerar_pdf(paginas, titulo=nome_pdf.stem, tamanho=a.pagina))
+    print(f"PDF com {len(paginas)} pagina(s): {nome_pdf}")
+    return 0
+
+
 def cmd_gerar(a) -> int:
     from .gerador import Modelo, desenhar_folha, fotografar, marcar
 
@@ -123,6 +152,17 @@ def main(argv=None) -> int:
     l.add_argument("--recortes", action="store_true", help="salva uma imagem por questao")
     l.add_argument("--saida", "-s", default="saida", help="pasta de saida (padrao: saida)")
     l.set_defaults(func=cmd_ler)
+
+    d = sub.add_parser("digitalizar", help="scanner: acha a folha, endireita, limpa e gera PDF")
+    d.add_argument("fotos", nargs="+", help="imagens ou pastas; cada foto vira uma pagina, na ordem dada")
+    d.add_argument("--filtro", "-f", choices=["cor", "cinza", "pb", "original"], default="cor")
+    d.add_argument("--girar", type=int, default=0, choices=[0, 90, 180, 270], help="graus, sentido horario")
+    d.add_argument("--pagina", choices=["auto", "a4", "carta"], default="auto", help="tamanho da pagina do PDF")
+    d.add_argument("--pdf", help="arquivo PDF de saida (padrao: <saida>/documento.pdf)")
+    d.add_argument("--imagens", action="store_true", help="salva tambem cada pagina como JPEG")
+    d.add_argument("--deteccao", action="store_true", help="salva a foto com o contorno da folha encontrada")
+    d.add_argument("--saida", "-s", default="saida")
+    d.set_defaults(func=cmd_digitalizar)
 
     g = sub.add_parser("gerar", help="gera uma folha de respostas para imprimir (ou um exemplo preenchido)")
     g.add_argument("--questoes", type=int, default=20)

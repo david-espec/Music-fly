@@ -89,6 +89,10 @@ def desenhar(
             cv2.putText(base, rotulo, org, cv2.FONT_HERSHEY_SIMPLEX, fonte, (255, 255, 255), esp + 2, cv2.LINE_AA)
             cv2.putText(base, rotulo, org, cv2.FONT_HERSHEY_SIMPLEX, fonte, cor, max(1, esp - 1), cv2.LINE_AA)
 
+    if H_inv is not None and leitura.cantos is not None:
+        # Contorno da folha identificada, como no scanner.
+        cv2.polylines(base, [np.round(leitura.cantos).astype(np.int32)], True, AZUL, esp + 1, cv2.LINE_AA)
+
     cv2.addWeighted(camada, 0.45, base, 0.55, 0, dst=base)
     # Os contornos por cima do preenchimento translucido ficam nitidos.
     for q in leitura.questoes:

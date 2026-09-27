@@ -15,6 +15,9 @@ devolve a imagem com as respostas pintadas de **verde**.
   folha preenchida pelo professor**.
 - Aceita foto de celular torta, com sombra e fundo de mesa, e também imagem
   escaneada.
+- Inclui um **scanner de documentos** (o mesmo do Scan Fly, em Python):
+  identifica a folha na foto, corrige a perspectiva, limpa a imagem com um
+  filtro e gera PDF.
 
 ## Instalação
 
@@ -67,6 +70,28 @@ Opções úteis:
 | `--parcial` | questão de duas respostas vale meio ponto por alternativa certa (sem nenhuma errada marcada) |
 | `--limiar 0.5` | fixa o preenchimento mínimo para contar como marcada. O padrão é calculado por folha |
 
+### Digitalizar documentos (scanner)
+
+```bash
+# Cada foto vira uma página, na ordem dada
+python -m leitor_gabarito digitalizar pagina1.jpg pagina2.jpg --pdf contrato.pdf
+
+# Preto e branco, página A4, e salvando também a foto com o contorno da folha achada
+python -m leitor_gabarito digitalizar fotos/ --filtro pb --pagina a4 --deteccao --imagens
+```
+
+| Opção | Para quê |
+|---|---|
+| `--filtro cor` | papel branco e cores vivas (padrão). Também `cinza`, `pb` (ótimo para texto) e `original` |
+| `--pagina auto` | tamanho da página do PDF: `auto` (formato da folha), `a4` ou `carta` |
+| `--girar 90` | gira as páginas (90, 180 ou 270 graus) |
+| `--deteccao` | salva `<foto>_deteccao.jpg`, com a folha identificada contornada em azul |
+| `--imagens` | salva cada página também como JPEG |
+
+Os filtros estimam a luz que cai sobre o papel e dividem a imagem por ela:
+sombra da mão, canto escuro e luz amarelada somem. O P&B aplica depois um
+limiar adaptativo com borda suave.
+
 ### Interface web
 
 ```bash
@@ -75,7 +100,9 @@ python -m leitor_gabarito web       # abre em http://127.0.0.1:5000
 
 Envie a foto (no celular, o botão abre a câmera), opcionalmente o gabarito em
 texto ou a foto da folha do professor, e veja a imagem marcada e a tabela de
-resultados. Nada é gravado em disco. Para acessar do celular na mesma rede,
+resultados. A aba **Digitalizar documento** recebe várias fotos, mostra a
+folha identificada em cada uma e a página limpa, e baixa o PDF. Nada é
+gravado em disco. Para acessar do celular na mesma rede,
 use `--host 0.0.0.0`.
 
 ### Como biblioteca
@@ -121,7 +148,9 @@ Tudo em `leitor_gabarito/`:
 
 1. **Folha** (`folha.py`): acha o contorno da folha (papel claro sobre a mesa,
    ou pelas bordas), corrige a perspectiva para uma largura fixa e remove
-   sombra e degradê dividindo a imagem pela iluminação estimada do papel.
+   sombra e degradê dividindo a imagem pela iluminação estimada do papel. É a
+   mesma detecção usada pelo scanner (`digitalizar.py`), e o contorno da folha
+   achada aparece em azul na foto marcada.
 2. **Bolhas** (`leitura.py`), em duas passadas:
    - contornos fechados, quase quadrados e cheios (círculo ou quadrado);
    - para as que escaparam — bolhas encostadas umas nas outras, letra tocando
@@ -168,6 +197,10 @@ questão por questão:
 | A–E, 50 questões, 5 colunas | bolhas pequenas e encostadas, preenchimento em rabisco |
 | A–C, 40 questões, 4 colunas | foto bem torta, escura, ruidosa e desfocada |
 
+O scanner tem testes próprios: folha achada e proporção recuperada, recorte
+sem pegar a mesa, filtros tirando uma sombra forte, PDF válido (com as
+imagens decodificando de volta) e a aba web gerando o PDF.
+
 Também: folha escaneada sem fundo, folha em branco (não pode inventar
 marcação), dedução do número de alternativas, numeração por linha, correção
 com questões de duas respostas, gabarito a partir da folha do professor e a
@@ -175,6 +208,9 @@ interface web.
 
 ## Limites conhecidos
 
+- No scanner, a proporção da página sai do comprimento dos lados da folha na
+  foto; com perspectiva forte ela pode ficar alguns por cento diferente da
+  real.
 - A folha precisa estar de pé (não de cabeça para baixo nem deitada).
 - As alternativas de cada questão precisam estar lado a lado, na horizontal.
 - As bolhas precisam ser formas fechadas (círculo ou quadrado). Uma

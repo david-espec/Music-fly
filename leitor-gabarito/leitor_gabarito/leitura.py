@@ -90,6 +90,8 @@ class Leitura:
     limiar: float
     opcoes: list[str]
     avisos: list[str] = field(default_factory=list)
+    # Cantos da folha na foto original (sup-esq, sup-dir, inf-dir, inf-esq), se achada.
+    cantos: np.ndarray | None = None
 
     def respostas(self) -> dict[int, list[str]]:
         return {q.numero: q.marcadas for q in self.questoes}
@@ -101,6 +103,7 @@ class Leitura:
             "opcoes": self.opcoes,
             "total_questoes": len(self.questoes),
             "avisos": self.avisos,
+            "cantos_folha": None if self.cantos is None else [[round(float(v), 1) for v in p] for p in self.cantos],
             "questoes": [q.to_dict() for q in self.questoes],
         }
 
@@ -449,7 +452,7 @@ def ler_gabarito(
     brutas, tam = _montar_questoes(cands, len(rotulos) if rotulos else None, ordem)
     if not brutas:
         avisos.append("Nenhuma questao encontrada. Confira se a folha inteira aparece na foto.")
-        return Leitura([], ret, H, cantos is not None, 0.5, rotulos or [], avisos)
+        return Leitura([], ret, H, cantos is not None, 0.5, rotulos or [], avisos, cantos)
 
     n = len(brutas[0][2])
     if rotulos is None:
@@ -480,4 +483,4 @@ def ler_gabarito(
     faltando = sum(not b.detectada for q in questoes for b in q.bolhas)
     if faltando:
         avisos.append(f"{faltando} bolha(s) com posicao deduzida pela grade.")
-    return Leitura(questoes, ret, H, cantos is not None, corte, rotulos, avisos)
+    return Leitura(questoes, ret, H, cantos is not None, corte, rotulos, avisos, cantos)
