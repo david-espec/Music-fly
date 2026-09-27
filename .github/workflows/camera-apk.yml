@@ -1,0 +1,62 @@
+name: Gerar o APK da câmera Foto
+
+on:
+  push:
+    branches: [claude/mobile-photo-camera-ed1h9w]
+    paths:
+      - 'camera-android/**'
+      - '.github/workflows/camera-apk.yml'
+  workflow_dispatch:
+
+# contents: write para publicar o APK numa Release, com link fixo de download.
+permissions:
+  contents: write
+
+concurrency:
+  group: camera-apk
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: camera-android
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Compilar
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+          cp app/build/outputs/apk/release/app-release.apk Foto.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Foto-apk
+          path: camera-android/Foto.apk
+
+      # Sempre o mesmo endereco para baixar a versao mais nova:
+      # https://github.com/<dono>/<repo>/releases/download/foto-camera/Foto.apk
+      - name: Publicar para download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes="Câmera Foto para Android — versão 1.0.${{ github.run_number }}.
+          Baixe o Foto.apk abaixo no celular e toque nele para instalar."
+          if gh release view foto-camera >/dev/null 2>&1; then
+            gh release upload foto-camera Foto.apk --clobber
+            gh release edit foto-camera --notes "$notes"
+          else
+            gh release create foto-camera Foto.apk \
+              --target "${{ github.sha }}" \
+              --title "Foto — câmera para Android" \
+              --notes "$notes"
+          fi

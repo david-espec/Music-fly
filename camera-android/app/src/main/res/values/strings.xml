@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Foto</string>
+    <string name="take_photo">Tirar foto</string>
+    <string name="switch_camera">Trocar câmera</string>
+    <string name="open_last">Abrir última foto</string>
+    <string name="flash">Flash</string>
+    <string name="timer">Temporizador</string>
+    <string name="grid">Grade</string>
+    <string name="permission_text">Para tirar fotos, o app precisa acessar a câmera.</string>
+    <string name="permission_button">Permitir câmera</string>
+</resources>
