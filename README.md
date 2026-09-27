@@ -213,3 +213,9 @@ ilegível.
 React 19 · TypeScript · Vite · vite-plugin-pwa (Workbox) · idb · music-metadata
 
 Nenhuma dependência de UI, de estado global ou de rede além dessas.
+
+## Outros apps neste repositório
+
+- [`scan-fly/`](scan-fly/) — **Scan Fly**, scanner de documentos no estilo do
+  Genius Scan: detecção de bordas, correção de perspectiva, filtros e PDF, tudo
+  no aparelho. Projeto independente, com o próprio `package.json`.
