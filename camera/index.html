@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
+    />
+    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="Camera de fotos em alta qualidade para o celular." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Foto" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="icon.svg" />
+    <link rel="apple-touch-icon" href="icon.svg" />
+    <link rel="stylesheet" href="styles.css" />
+    <title>Foto</title>
+  </head>
+  <body>
+    <main class="camera" id="camera">
+      <!-- Visor -->
+      <div class="viewfinder" id="viewfinder">
+        <video id="video" autoplay playsinline muted></video>
+        <div class="grid" id="grid" hidden aria-hidden="true"></div>
+        <div class="focus" id="focus" aria-hidden="true"></div>
+        <div class="flash-overlay" id="flashOverlay" aria-hidden="true"></div>
+        <div class="countdown" id="countdown" aria-live="assertive"></div>
+
+        <div class="message" id="message" hidden>
+          <p id="messageText"></p>
+          <button type="button" class="pill" id="retry">Tentar de novo</button>
+          <label class="pill pill--ghost">
+            Usar a camera do sistema
+            <input type="file" accept="image/*" capture="environment" id="systemCamera" hidden />
+          </label>
+        </div>
+      </div>
+
+      <!-- Barra superior -->
+      <header class="topbar">
+        <button type="button" class="round" id="flashBtn" aria-label="Flash desligado" hidden>
+          <svg viewBox="0 0 24 24"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12z" /></svg>
+          <span class="badge" id="flashBadge">off</span>
+        </button>
+        <button type="button" class="round" id="timerBtn" aria-label="Temporizador desligado">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="13" r="8" />
+            <path d="M12 9v4l2.5 2.5M9.5 2.5h5" />
+          </svg>
+          <span class="badge" id="timerBadge">off</span>
+        </button>
+        <button type="button" class="round" id="gridBtn" aria-label="Grade" aria-pressed="false">
+          <svg viewBox="0 0 24 24">
+            <path d="M4 4h16v16H4zM9.33 4v16M14.67 4v16M4 9.33h16M4 14.67h16" />
+          </svg>
+        </button>
+        <span class="resolution" id="resolution"></span>
+      </header>
+
+      <!-- Zoom -->
+      <div class="zoom" id="zoomBox" hidden>
+        <span class="zoom__value" id="zoomValue">1.0x</span>
+        <input type="range" id="zoom" min="1" max="1" step="0.1" value="1" aria-label="Zoom" />
+      </div>
+
+      <!-- Controles -->
+      <footer class="controls">
+        <button type="button" class="thumb" id="galleryBtn" aria-label="Abrir galeria">
+          <img id="thumb" alt="" hidden />
+        </button>
+        <button type="button" class="shutter" id="shutter" aria-label="Tirar foto" disabled>
+          <span></span>
+        </button>
+        <button type="button" class="round round--big" id="switchBtn" aria-label="Trocar camera">
+          <svg viewBox="0 0 24 24">
+            <path d="M4 8h3l2-2.5h6L17 8h3v11H4z" />
+            <path d="M9 13a3 3 0 0 1 5.2-2M15 13a3 3 0 0 1-5.2 2" />
+            <path d="M14.5 9.5v1.7h-1.7M9.5 16.5v-1.7h1.7" />
+          </svg>
+        </button>
+      </footer>
+    </main>
+
+    <!-- Galeria -->
+    <section class="gallery" id="gallery" hidden aria-label="Galeria">
+      <header class="gallery__bar">
+        <button type="button" class="round" id="galleryClose" aria-label="Voltar para a camera">
+          <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" /></svg>
+        </button>
+        <h1>Fotos</h1>
+        <span class="gallery__count" id="galleryCount"></span>
+      </header>
+      <ul class="gallery__grid" id="galleryGrid"></ul>
+      <p class="gallery__empty" id="galleryEmpty" hidden>Nenhuma foto ainda.</p>
+    </section>
+
+    <!-- Visualizador de uma foto -->
+    <section class="viewer" id="viewer" hidden aria-label="Foto">
+      <header class="gallery__bar">
+        <button type="button" class="round" id="viewerClose" aria-label="Voltar para a galeria">
+          <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" /></svg>
+        </button>
+        <span class="viewer__info" id="viewerInfo"></span>
+      </header>
+      <img class="viewer__img" id="viewerImg" alt="" />
+      <footer class="viewer__actions">
+        <button type="button" class="pill" id="shareBtn">Compartilhar</button>
+        <button type="button" class="pill" id="saveBtn">Salvar no aparelho</button>
+        <button type="button" class="pill pill--danger" id="deleteBtn">Apagar</button>
+      </footer>
+    </section>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
