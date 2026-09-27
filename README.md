@@ -219,3 +219,7 @@ Nenhuma dependência de UI, de estado global ou de rede além dessas.
 - [`scan-fly/`](scan-fly/) — **Scan Fly**, scanner de documentos no estilo do
   Genius Scan: detecção de bordas, correção de perspectiva, filtros e PDF, tudo
   no aparelho. Projeto independente, com o próprio `package.json`.
+- [`leitor-gabarito/`](leitor-gabarito/) — **Leitor de Gabarito**, em Python com
+  OpenCV: lê fotos de folhas de resposta de qualquer layout, identifica cada
+  questão (inclusive as com duas respostas), marca as respostas em verde e
+  corrige contra o gabarito.
