@@ -111,8 +111,9 @@ def digitalizar(
 ) -> Pagina:
     """Foto -> pagina limpa, pronta para o PDF.
 
-    Com `marcar` (padrao), se a folha for um gabarito, as alternativas
-    marcadas saem pintadas de verde na propria pagina — e portanto no PDF.
+    Com `marcar` (padrao), se a folha for um gabarito, cada alternativa
+    marcada sai circulada de verde na propria pagina — e portanto no PDF —,
+    com a marcacao do aluno continuando visivel por dentro.
     Com `gabarito`, a pagina mostra tambem a correcao. Em documento comum
     nenhuma questao e achada e a pagina sai so limpa.
     `cantos` permite ajustar o recorte a mao; `leitura`, reaproveitar uma
@@ -147,7 +148,10 @@ def digitalizar(
             if correcao is None and gabarito:
                 correcao = corrigir(leitura, gabarito)
             M = _para_pagina(pagina, leitura, m)
-            pagina = desenhar_em(leitura, pagina, M, correcao, escala=max(1.0, M[0, 0]))
+            # Pagina igual a digitalizada, com a bolha que o aluno marcou
+            # circulada de verde. Numero da questao so quando ha correcao.
+            pagina = desenhar_em(leitura, pagina, M, correcao, mostrar_questoes=correcao is not None,
+                                 escala=max(1.0, M[0, 0]), estilo="circulo", mostrar_caixas=False)
     return Pagina(girar(pagina, rotacao), cantos, leitura if marcar else None, correcao if marcar else None, M)
 
 

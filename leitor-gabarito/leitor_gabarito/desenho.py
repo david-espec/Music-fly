@@ -15,6 +15,9 @@ VERMELHO = (50, 50, 230)
 LARANJA = (0, 150, 255)
 CINZA = (150, 150, 150)
 
+# Raio do circulo verde em volta da bolha marcada (no estilo "circulo"), em raios da bolha.
+RAIO_CIRCULO = 1.3
+
 
 def _contorno(x, y, r, H_inv, n=40):
     """Circulo na imagem retificada levado para a foto original (vira elipse torta)."""
@@ -90,12 +93,18 @@ def desenhar_em(
     mostrar_questoes: bool = True,
     escala: float = 1.0,
     contorno_folha: bool = False,
+    estilo: str = "preenchido",
+    mostrar_caixas: bool = True,
 ) -> np.ndarray:
     """Desenha as marcacoes numa imagem qualquer.
 
     `transformacao` (3x3) leva coordenadas da folha retificada da leitura para
     as de `imagem`; None quando a imagem e a propria folha retificada. Serve
     para a foto original, a folha retificada e a pagina do scanner/PDF.
+
+    `estilo`: "preenchido" pinta a bolha marcada de verde; "circulo" so a
+    circula de verde por fora, deixando a marcacao do aluno a mostra (o PDF).
+    `mostrar_caixas`: retangulo em volta de cada questao.
     """
     base = imagem.copy()
     H_inv = transformacao
@@ -105,27 +114,33 @@ def desenhar_em(
 
     # 1) Preenchimento verde translucido nas bolhas marcadas. Forte, para
     #    aparecer ate sobre a bolha pintada de preto.
-    camada = base.copy()
-    for q in leitura.questoes:
-        for b in q.bolhas:
-            if b.marcada:
-                cv2.fillPoly(camada, [_contorno(b.x, b.y, b.raio * 0.95, H_inv)], VERDE, cv2.LINE_AA)
-    cv2.addWeighted(camada, 0.65, base, 0.35, 0, dst=base)
+    if estilo == "preenchido":
+        camada = base.copy()
+        for q in leitura.questoes:
+            for b in q.bolhas:
+                if b.marcada:
+                    cv2.fillPoly(camada, [_contorno(b.x, b.y, b.raio * 0.95, H_inv)], VERDE, cv2.LINE_AA)
+        cv2.addWeighted(camada, 0.65, base, 0.35, 0, dst=base)
 
     # 2) Linhas e rotulos por cima, nitidos.
     for q in leitura.questoes:
         res = resultados.get(q.numero)
         for b in q.bolhas:
-            if b.marcada:
+            if b.marcada and estilo == "circulo":
+                # Circulo verde por fora da bolha: onde o scanner leu a marcacao.
+                cv2.polylines(base, [_contorno(b.x, b.y, b.raio * RAIO_CIRCULO, H_inv)], True, VERDE_ESCURO,
+                              max(3, int(round(b.raio * 0.22 * escala))), cv2.LINE_AA)
+            elif b.marcada:
                 cv2.polylines(base, [_contorno(b.x, b.y, b.raio * 0.95, H_inv)], True, VERDE_ESCURO, esp, cv2.LINE_AA)
             elif res and b.opcao in res.esperado:
                 cv2.polylines(base, [_contorno(b.x, b.y, b.raio * 1.25, H_inv)], True, LARANJA, esp, cv2.LINE_AA)
 
         if mostrar_questoes:
             x0, y0, x1, y1 = caixas[q.numero]
-            canto = [_ponto(x, y, H_inv) for x, y in [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]]
-            # Contorno verde em cada questao: mostra onde o sistema leu.
-            cv2.polylines(base, [np.array(canto, np.int32)], True, VERDE_ESCURO, max(2, esp - 1), cv2.LINE_AA)
+            if mostrar_caixas:
+                canto = [_ponto(x, y, H_inv) for x, y in [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]]
+                # Contorno verde em cada questao: mostra onde o sistema leu.
+                cv2.polylines(base, [np.array(canto, np.int32)], True, VERDE_ESCURO, max(2, esp - 1), cv2.LINE_AA)
 
             if res is None:
                 cor = VERDE_ESCURO if q.marcadas else CINZA

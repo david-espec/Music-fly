@@ -60,7 +60,7 @@ Para cada foto, na pasta de saída:
 | `<foto>.json` | questões, alternativas marcadas, situação e preenchimento de cada bolha |
 | `<foto>_questoes/` | uma imagem por questão (com `--recortes`) |
 | `resultados.csv` | uma linha por foto: acertos, nota e resposta de cada questão |
-| `gabaritos_marcados.pdf` | uma página por foto: a folha limpa (scanner), com **contorno verde em cada questão lida** e as bolhas marcadas em verde |
+| `gabaritos_marcados.pdf` | uma página por foto: a folha limpa (scanner), igual à digitalizada, com **cada bolha marcada circulada de verde** onde o sistema leu |
 
 Opções úteis:
 
@@ -93,10 +93,13 @@ python -m leitor_gabarito digitalizar fotos/ --filtro pb --pagina a4 --deteccao 
 | `--gabarito "1:A 2:B+D"` | corrige e mostra o resultado na página (número da questão verde/vermelho) |
 | `--sem-marcacoes` | só digitaliza, sem marcar as bolhas |
 
-Se a folha for um gabarito, **o PDF já sai marcado**: cada questão lida ganha
-um contorno verde, mostrando onde o sistema leu, e as bolhas preenchidas
-ficam pintadas de verde. Questões com duas respostas ganham o rótulo `2x` em
-laranja. Em documento comum (sem bolhas), a página sai só limpa.
+Se a folha for um gabarito, **o PDF já sai marcado**: a página é a mesma da
+digitalização, com a marcação do aluno à mostra, e cada bolha que o sistema
+identificou como marcada ganha um **círculo verde em volta**. Numa questão
+com duas respostas, as duas saem circuladas. Com `--gabarito`, o número de
+cada questão aparece em verde (certa) ou vermelho (errada), e a alternativa
+certa que faltou é circulada em laranja. Em documento comum (sem bolhas), a
+página sai só limpa.
 
 Os filtros estimam a luz que cai sobre o papel e dividem a imagem por ela:
 sombra da mão, canto escuro e luz amarelada somem. O P&B aplica depois um
@@ -182,10 +185,11 @@ Tudo em `leitor_gabarito/`:
    fica de fora). O corte entre marcada e vazia é calculado por folha, no meio
    do vão entre os dois grupos, então caneta, lápis, X e rabisco funcionam sem
    ajuste. Bolhas perto do corte aparecem como "duvidosas" nos avisos.
-5. **Desenho** (`desenho.py`): cada questão lida ganha um contorno verde (sem
-   encostar nas vizinhas) e as bolhas marcadas um círculo verde. O mesmo
-   desenho vai para a folha endireitada, para a foto original (no lugar
-   certo apesar da perspectiva) e para a página do scanner/PDF. Com gabarito, o número da questão fica
+5. **Desenho** (`desenho.py`): na foto original (no lugar certo apesar da
+   perspectiva) e na folha endireitada, cada questão lida ganha um contorno e
+   as bolhas marcadas são pintadas de verde. No PDF a bolha marcada não é
+   coberta: ganha um círculo verde por fora, e a tinta do aluno continua
+   visível. Com gabarito, o número da questão fica
    verde (certa), vermelho (errada) ou cinza (em branco), e a alternativa
    correta que faltou é contornada em laranja.
 
@@ -209,11 +213,11 @@ questão por questão:
 | A–E, 50 questões, 5 colunas | bolhas pequenas e encostadas, preenchimento em rabisco |
 | A–C, 40 questões, 4 colunas | foto bem torta, escura, ruidosa e desfocada |
 
-O PDF marcado tem testes próprios: exatamente uma marca verde por bolha
-preenchida, em cima da bolha certa, com todos os filtros; o contorno verde de
-cada questão no lugar em que ela foi lida; nenhuma marca num documento de
-texto comum; e as marcações presentes nos PDFs gerados pelos comandos `ler` e
-`digitalizar` e pelas duas telas da interface web.
+O PDF marcado tem testes próprios: um círculo verde em volta de cada bolha
+marcada, e só delas, com todos os filtros; a tinta do aluno continuando
+visível dentro do círculo; nenhum outro verde na página; nenhuma marca num
+documento de texto comum; e os círculos presentes nos PDFs gerados pelos
+comandos `ler` e `digitalizar` e pelas duas telas da interface web.
 
 O scanner também tem testes: folha achada e proporção recuperada, recorte
 sem pegar a mesa, filtros tirando uma sombra forte, PDF válido (com as
@@ -228,8 +232,8 @@ interface web.
 
 - Texto comum é filtrado (entre duas bolhas de uma questão há papel em branco,
   entre letras de uma palavra não), mas uma folha com muito texto em volta das
-  bolhas ainda pode gerar algum falso positivo: confira o contorno verde, que
-  mostra exatamente o que foi lido como questão.
+  bolhas ainda pode gerar algum falso positivo: os círculos verdes mostram
+  exatamente o que foi lido.
 
 - No scanner, a proporção da página sai do comprimento dos lados da folha na
   foto; com perspectiva forte ela pode ficar alguns por cento diferente da
