@@ -16,28 +16,43 @@ baixa em segundo plano. Na primeira atualização o Android pede uma confirmaç�
 (e, uma única vez, a permissão "Permitir desta fonte"). A partir daí, no
 Android 12 ou mais novo, as atualizações são instaladas sem perguntar, quando
 você sai do app. Dá para desligar em Configurações.
-Requer Android 8.0 ou mais novo.
+Requer Android 8.0 ou mais novo, processador ARM 64 bits.
 
 ## O que faz
 
-Tela no estilo da câmera da Samsung:
+Tudo é consultado na câmera real (Camera2/CameraX): o que o aparelho não
+oferece fica escondido ou desativado, nunca simulado.
 
-- **Barra de cima**: configurações, flash, temporizador, formato da foto
-  (3:4, 9:16, 1:1 ou Full, a tela inteira), resolução e linhas de grade.
-- **Resolução**: toque no "12M"/"50M" para alternar entre a resolução padrão
-  (12 MP) e a máxima do sensor (50 MP, 108 MP… quando o aparelho libera). A
-  foto sai em JPEG qualidade 100, no modo "máxima qualidade" do CameraX.
-- **Zoom**: botões 1× e 2× (e grande-angular, se houver), ou pinçando a tela.
-- **Modos**: RETRATO, FOTO e VÍDEO (deslize na tela para trocar) e MAIS, com
-  Noite, HDR e Auto-retoque. Retrato, Noite, HDR e Retoque usam o
-  processamento do próprio fabricante e só aparecem onde o celular oferece.
-- **Vídeo** em Full HD ou 4K (toque em FHD/UHD), com som; o flash vira lanterna.
-- **Toque para focar** (foco, exposição e balanço de branco no ponto tocado).
-- **Temporizador** de 3 ou 10 s (toque de novo no disparador para cancelar).
-- Botões de **volume** também disparam.
-- **Configurações**: som do obturador, espelhar selfies e disparo pelo volume.
-- Fotos vão para a galeria no álbum `Pictures/Foto`, vídeos em `Movies/Foto`.
-  A miniatura redonda abre o último arquivo.
+- **Modos**: Retrato, Foto, Vídeo e, em MAIS, Pro, Panorama, Macro, Comida,
+  Noite e Documentos. Deslize para os lados para trocar; para cima/baixo
+  para trocar de câmera.
+- **Controles**: flash (ou flash de tela na frontal), HDR, temporizador
+  3/5/10 s, formato (3:4, 9:16, 1:1, Full), resolução entre as que o sensor
+  oferece, zoom por pinça, botões (0,5× só com grande-angular real) e
+  controle deslizante, toque para focar, toque longo para travar AE/AF,
+  arrastar para ajustar a exposição (EV).
+- **Filtros** (15, no visor e na foto) e **Beleza** (pele, brilho, olhos,
+  rosto, dentes, contorno) aplicada na foto com detecção de rosto do ML Kit.
+- **Retrato**: extensão do fabricante quando existe; senão, desfoque por
+  software separando a pessoa do fundo (não usa sensor de profundidade).
+- **Pro**: ISO, obturador, EV, balanço de branco (e Kelvin) e foco manual,
+  cada um só se o sensor aceitar.
+- **Noite** e **HDR**: do fabricante quando existem; senão, várias fotos
+  alinhadas e combinadas no aparelho.
+- **Panorama** guiado pelo giroscópio, com projeção cilíndrica e costura.
+- **Macro**: câmera macro se o fabricante liberar; senão, foco próximo da
+  principal (e o app diz isso).
+- **Vídeo**: qualidades e FPS reais do aparelho, microfone, pausar/continuar,
+  foto durante o vídeo e troca de câmera gravando.
+- **QR Code** com confirmação antes de abrir, **scanner de documentos**
+  (bordas, perspectiva, PDF), **grade**, **guia central**, **nivelador** e
+  **histograma**.
+- **Visualizador** (compartilhar, excluir, informações EXIF) e **editor**
+  (cortar, girar, espelhar, ajustes, filtros, P&B, desfazer/refazer; salva
+  como nova foto).
+- **Configurações** no estilo da câmera Samsung, marca d'água, localização
+  (só se autorizada), pastas, diagnóstico da câmera.
+- Atualização automática pelo próprio app.
 
 ## Como é gerado
 
