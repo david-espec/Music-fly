@@ -75,4 +75,13 @@ dependencies {
     implementation("androidx.camera:camera-view:$camerax")
     implementation("androidx.camera:camera-video:$camerax")
     implementation("androidx.camera:camera-extensions:$camerax")
+
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
+
+    // Visao computacional no proprio aparelho (modelos embutidos, sem rede).
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
+    implementation("com.google.mlkit:face-detection:16.1.7")
+    implementation("com.google.mlkit:segmentation-selfie:16.0.0-beta6")
+    // Scanner de documentos do Google Play Services.
+    implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0-beta1")
 }
