@@ -2045,7 +2045,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
 
         val metadata = ImageCapture.Metadata().apply {
             isReversedHorizontal = settings.mirrorSelfies && lensFacing == CameraSelector.LENS_FACING_FRONT
-            if (settings.location) location.last?.let { this.location = it }
+            if (settings.location) this@MainActivity.location.last?.let { this.location = it }
         }
         val options = ImageCapture.OutputFileOptions.Builder(
             contentResolver,
@@ -2279,7 +2279,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
 
         val output = MediaStoreOutputOptions.Builder(contentResolver, MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
             .setContentValues(MediaSaver.videoValues(MediaSaver.timestamp("VID"), settings.videoFolder))
-            .apply { if (settings.location) location.last?.let { setLocation(it) } }
+            .apply { if (settings.location) this@MainActivity.location.last?.let { setLocation(it) } }
             .build()
 
         var pending = capture.output.prepareRecording(this, output)
