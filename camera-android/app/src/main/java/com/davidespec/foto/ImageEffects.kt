@@ -320,7 +320,7 @@ object ImageEffects {
         val lut = IntArray(256) { v -> clamp(Math.pow(v / 255.0, gamma.toDouble()).toFloat() * 255f) }
         val out = IntArray(w * h)
         for (i in out.indices) {
-            val n = max(1, weight[i])
+            val n = max(1, weight[i].toInt())
             out[i] = (0xFF shl 24) or (lut[min(255, sumR[i] / n)] shl 16) or
                 (lut[min(255, sumG[i] / n)] shl 8) or lut[min(255, sumB[i] / n)]
         }
