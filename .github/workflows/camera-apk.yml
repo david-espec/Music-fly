@@ -35,7 +35,17 @@ jobs:
       - name: Compilar
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          # Em caso de erro, mostra so as mensagens do compilador no fim do log.
+          set +e
+          ./gradlew assembleRelease --no-daemon > build.log 2>&1
+          status=$?
+          set -e
+          if [ $status -ne 0 ]; then
+            tail -n 40 build.log
+            echo "===== ERROS ====="
+            grep -E "^e: |error:|ERROR:|What went wrong" -A2 build.log | head -150
+            exit 1
+          fi
           cp app/build/outputs/apk/release/app-release.apk Foto.apk
           # O app instalado le este arquivo para saber se ha versao nova.
           printf '{"versionCode": %s, "versionName": "1.0.%s"}\n' \
