@@ -11,7 +11,11 @@ na maior qualidade que o celular oferece.
    fonte** (é o aviso padrão para apps de fora da Play Store).
 3. Abra o **Foto** e permita o acesso à câmera.
 
-Versões novas usam o mesmo link e instalam por cima, sem perder nada.
+O app se atualiza sozinho: ao abrir, ele confere se saiu versão nova e já
+baixa em segundo plano. Na primeira atualização o Android pede uma confirmação
+(e, uma única vez, a permissão "Permitir desta fonte"). A partir daí, no
+Android 12 ou mais novo, as atualizações são instaladas sem perguntar, quando
+você sai do app. Dá para desligar em Configurações.
 Requer Android 8.0 ou mais novo.
 
 ## O que faz

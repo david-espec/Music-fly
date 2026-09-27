@@ -7,6 +7,10 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- Som dos videos. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Atualizacao automatica: baixar a versao nova e instalar por cima. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
     <!-- So o Android 8 e 9 precisam disto para gravar na galeria. -->
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
@@ -35,5 +39,9 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name=".UpdateReceiver"
+            android:exported="false" />
     </application>
 </manifest>

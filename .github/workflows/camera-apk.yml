@@ -37,6 +37,9 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon --stacktrace
           cp app/build/outputs/apk/release/app-release.apk Foto.apk
+          # O app instalado le este arquivo para saber se ha versao nova.
+          printf '{"versionCode": %s, "versionName": "1.0.%s"}\n' \
+            "${{ github.run_number }}" "${{ github.run_number }}" > version.json
 
       - uses: actions/upload-artifact@v4
         with:
@@ -52,10 +55,10 @@ jobs:
           notes="Câmera Foto para Android — versão 1.0.${{ github.run_number }}.
           Baixe o Foto.apk abaixo no celular e toque nele para instalar."
           if gh release view foto-camera >/dev/null 2>&1; then
-            gh release upload foto-camera Foto.apk --clobber
+            gh release upload foto-camera Foto.apk version.json --clobber
             gh release edit foto-camera --notes "$notes"
           else
-            gh release create foto-camera Foto.apk \
+            gh release create foto-camera Foto.apk version.json \
               --target "${{ github.sha }}" \
               --title "Foto — câmera para Android" \
               --notes "$notes"

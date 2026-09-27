@@ -149,6 +149,7 @@ class MainActivity : AppCompatActivity() {
     private val main = Handler(Looper.getMainLooper())
     private var countdownTask: Runnable? = null
     private lateinit var io: ExecutorService
+    private lateinit var updater: Updater
     private val sound = MediaActionSound()
     private val prefs by lazy { getSharedPreferences("foto", MODE_PRIVATE) }
 
@@ -246,6 +247,9 @@ class MainActivity : AppCompatActivity() {
         loadLastPhoto()
 
         if (hasCameraPermission()) startCamera() else permissionLauncher.launch(permissions)
+
+        updater = Updater(this)
+        updater.check()
     }
 
     override fun onStart() {
@@ -258,6 +262,7 @@ class MainActivity : AppCompatActivity() {
         orientationListener.disable()
         cancelCountdown()
         recording?.stop()
+        updater.onStop()
     }
 
     override fun onResume() {
@@ -267,6 +272,7 @@ class MainActivity : AppCompatActivity() {
             permissionPanel.visibility = View.GONE
             startCamera()
         }
+        updater.onResume()
     }
 
     override fun onDestroy() {
@@ -517,8 +523,9 @@ class MainActivity : AppCompatActivity() {
             "Som do obturador",
             "Salvar selfies como aparecem na tela",
             "Botões de volume tiram foto",
+            "Atualizar o app automaticamente",
         )
-        val checked = booleanArrayOf(shutterSound, mirrorSelfies, volumeShutter)
+        val checked = booleanArrayOf(shutterSound, mirrorSelfies, volumeShutter, updater.enabled)
         AlertDialog.Builder(this)
             .setTitle("Configurações")
             .setMultiChoiceItems(labels, checked) { _, which, isChecked ->
@@ -526,6 +533,10 @@ class MainActivity : AppCompatActivity() {
                     0 -> shutterSound = isChecked
                     1 -> mirrorSelfies = isChecked
                     2 -> volumeShutter = isChecked
+                    3 -> {
+                        updater.enabled = isChecked
+                        if (isChecked) updater.check()
+                    }
                 }
                 savePrefs()
             }
