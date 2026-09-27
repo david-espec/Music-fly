@@ -17,6 +17,19 @@ android {
         targetSdk = 35
         versionCode = buildNumber
         versionName = "1.0.$buildNumber"
+
+        // So ARM 64 bits (Galaxy A04s e praticamente todo celular atual): as
+        // bibliotecas nativas do ML Kit para x86/32 bits quase triplicavam o APK.
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
+    }
+
+    // Bibliotecas nativas comprimidas: download bem menor.
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
     }
 
     // Chave fixa guardada no repositorio: todas as builds saem com a mesma
