@@ -23,16 +23,22 @@ import kotlin.math.atan
 @androidx.annotation.OptIn(ExperimentalCamera2Interop::class)
 class CameraCapabilities(val info: CameraInfo) {
 
-    private val c2 = Camera2CameraInfo.from(info)
+    // Algumas cameras (extensoes do fabricante) podem nao expor a Camera2:
+    // entao cada leitura cai no valor padrao em vez de derrubar o app.
+    private val c2: Camera2CameraInfo? = try {
+        Camera2CameraInfo.from(info)
+    } catch (error: Exception) {
+        null
+    }
 
     private fun <T> get(key: CameraCharacteristics.Key<T>): T? =
         try {
-            c2.getCameraCharacteristic(key)
+            c2?.getCameraCharacteristic(key)
         } catch (error: Exception) {
             null
         }
 
-    val cameraId: String = c2.cameraId
+    val cameraId: String = c2?.cameraId ?: "?"
     val facing: Int = get(CameraCharacteristics.LENS_FACING) ?: CameraMetadata.LENS_FACING_BACK
     val isFront get() = facing == CameraMetadata.LENS_FACING_FRONT
 

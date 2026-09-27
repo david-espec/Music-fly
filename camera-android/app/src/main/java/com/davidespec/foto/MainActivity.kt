@@ -957,8 +957,9 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
 
     /**
      * Liga a camera com os usos que o modo precisa. Se o aparelho recusar a
-     * combinacao, tenta de novo com menos recursos ([level] 1 e 2) em vez de
-     * deixar a tela preta.
+     * combinacao, tenta de novo com menos recursos em vez de deixar a tela
+     * preta: [level] 1 tira a alta resolucao e a extensao, 2 tira a analise
+     * de quadros e a foto durante o video, 3 usa o minimo.
      */
     private fun bindCamera(level: Int = 0) {
         val provider = cameraProvider ?: return
@@ -1022,7 +1023,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
             Mode.VIDEO -> {
                 val video = videoCapture ?: buildVideoCapture(base).also { videoCapture = it }
                 useCases += video
-                if (level == 0) {
+                if (level <= 1) {
                     // Foto durante o video, no tamanho do video.
                     imageCapture = ImageCapture.Builder()
                         .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
@@ -1041,7 +1042,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
             }
             else -> {
                 imageCapture = buildImageCapture(source, ratioStrategy, level).also { useCases += it }
-                if (level == 0 && nativeExtension == null && wantsAnalysis()) {
+                if (level <= 1 && nativeExtension == null && wantsAnalysis()) {
                     analysis = buildAnalysis(Size(640, 480)).also { useCases += it }
                 }
             }
@@ -1061,7 +1062,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
             onCameraBound(bound)
         } catch (error: Exception) {
             Log.e(TAG, "Falha ao ligar a camera (nivel $level)", error)
-            if (level < 2) {
+            if (level < 3) {
                 bindCamera(level + 1)
             } else {
                 if (keepRecording) recording?.stop()
@@ -1085,7 +1086,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
                 val target = if (fourByThree) Size(3264, 2448) else Size(3840, 2160)
                 resolution.setResolutionStrategy(ResolutionStrategy(target, ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER))
             }
-            level >= 2 || nativeExtension != null -> resolution.setResolutionStrategy(ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY)
+            level >= 1 || nativeExtension != null -> resolution.setResolutionStrategy(ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY)
             chosen == "max" -> resolution
                 .setResolutionStrategy(ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY)
                 .setAllowedResolutionMode(ResolutionSelector.PREFER_HIGHER_RESOLUTION_OVER_CAPTURE_RATE)
@@ -1572,7 +1573,11 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         if (!settings.qrCodes || mode != Mode.PHOTO) return
         val code = codes.firstOrNull { it.rawValue != null } ?: return
         val target = preview.outputTransform ?: return
-        val mapper = CoordinateTransform(transform, target)
+        val mapper = try {
+            CoordinateTransform(transform, target)
+        } catch (error: Exception) {
+            return
+        }
         overlay.qrBoxes = codes.mapNotNull { c -> c.boundingBox?.let { RectF(it).also { r -> mapper.mapRect(r) } } }
         lastQrValue = code
         qrChip.text = qrTitle(code)
@@ -1587,7 +1592,11 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
             return
         }
         val target = preview.outputTransform ?: return
-        val mapper = CoordinateTransform(transform, target)
+        val mapper = try {
+            CoordinateTransform(transform, target)
+        } catch (error: Exception) {
+            return
+        }
         val mapped = boxes.map { RectF(it).also { r -> mapper.mapRect(r) } }
         overlay.faceBoxes = mapped
         // Foco automatico no maior rosto, sem brigar com o toque do usuario.
