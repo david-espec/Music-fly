@@ -12,7 +12,10 @@ from datetime import datetime
 import cv2
 import numpy as np
 
+from .correcao import Correcao, Gabarito, corrigir
+from .desenho import desenhar_em
 from .folha import encontrar_folha, retificar
+from .leitura import Leitura, ler_gabarito
 
 FILTROS = ("cor", "cinza", "pb", "original")
 TAMANHOS_PAGINA = ("auto", "a4", "carta")
@@ -20,8 +23,16 @@ TAMANHOS_PAGINA = ("auto", "a4", "carta")
 
 @dataclass
 class Pagina:
-    imagem: np.ndarray  # BGR, ja recortada, filtrada e girada
+    imagem: np.ndarray  # BGR, ja recortada, filtrada, marcada e girada
     cantos: np.ndarray | None  # onde a folha foi achada na foto (None: foto inteira)
+    leitura: Leitura | None = None  # respostas lidas, quando a pagina e um gabarito
+    correcao: Correcao | None = None
+    # 3x3: coordenadas da folha retificada da leitura -> pagina (antes do giro).
+    transformacao: np.ndarray | None = None
+
+    @property
+    def marcada(self) -> bool:
+        return bool(self.leitura and self.leitura.questoes)
 
     @property
     def folha_encontrada(self) -> bool:
@@ -84,9 +95,31 @@ def girar(img: np.ndarray, graus: int) -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 
-def digitalizar(foto: np.ndarray, filtro: str = "cor", rotacao: int = 0, cantos: np.ndarray | None = None,
-                largura_max: int = 2400) -> Pagina:
-    """Foto -> pagina limpa. `cantos` permite ajustar o recorte a mao."""
+def digitalizar(
+    foto: np.ndarray,
+    filtro: str = "cor",
+    rotacao: int = 0,
+    cantos: np.ndarray | None = None,
+    largura_max: int = 2400,
+    marcar: bool = True,
+    opcoes: str | list[str] | None = None,
+    ordem: str = "colunas",
+    gabarito: Gabarito | None = None,
+    limiar: float | None = None,
+    leitura: Leitura | None = None,
+    correcao: Correcao | None = None,
+) -> Pagina:
+    """Foto -> pagina limpa, pronta para o PDF.
+
+    Com `marcar` (padrao), se a folha for um gabarito, as alternativas
+    marcadas saem pintadas de verde na propria pagina — e portanto no PDF.
+    Com `gabarito`, a pagina mostra tambem a correcao. Em documento comum
+    nenhuma questao e achada e a pagina sai so limpa.
+    `cantos` permite ajustar o recorte a mao; `leitura`, reaproveitar uma
+    leitura ja feita desta mesma foto (e `correcao`, a correcao dela).
+    """
+    if leitura is not None and cantos is None:
+        cantos = leitura.cantos
     if cantos is None:
         cantos = encontrar_folha(foto)
     # Mantem a resolucao da foto (limitada), em vez da largura fixa da leitura de gabarito.
@@ -96,12 +129,36 @@ def digitalizar(foto: np.ndarray, filtro: str = "cor", rotacao: int = 0, cantos:
     else:
         larg = foto.shape[1]
     ret, _ = retificar(foto, cantos, largura=int(min(largura_max, max(200, larg))))
+    m = 0
     if cantos is not None:
         # Descarta uma franja minima da borda, para nao pegar a mesa junto.
         h, w = ret.shape[:2]
         m = max(1, int(round(min(h, w) * 0.006)))
         ret = ret[m : h - m, m : w - m]
-    return Pagina(girar(aplicar_filtro(ret, filtro), rotacao), cantos)
+    pagina = aplicar_filtro(ret, filtro)
+
+    M = None
+    if marcar:
+        if leitura is None:
+            # Mesmos cantos: a leitura e a pagina enxergam exatamente o mesmo recorte.
+            leitura = ler_gabarito(foto, opcoes=opcoes, ordem=ordem, limiar=limiar,
+                                   procurar_folha=cantos is not None, cantos=cantos)
+        if leitura.questoes:
+            if correcao is None and gabarito:
+                correcao = corrigir(leitura, gabarito)
+            M = _para_pagina(pagina, leitura, m)
+            pagina = desenhar_em(leitura, pagina, M, correcao, escala=max(1.0, M[0, 0]))
+    return Pagina(girar(pagina, rotacao), cantos, leitura if marcar else None, correcao if marcar else None, M)
+
+
+def _para_pagina(pagina: np.ndarray, leitura: Leitura, margem: int) -> np.ndarray:
+    """Leva coordenadas da folha retificada da leitura (largura fixa) para a
+    pagina do scanner (outra escala, menos a franja cortada da borda)."""
+    lh, lw = leitura.retificada.shape[:2]
+    ph, pw = pagina.shape[:2]
+    sx = (pw + 2 * margem) / lw
+    sy = (ph + 2 * margem) / lh
+    return np.array([[sx, 0, -margem], [0, sy, -margem], [0, 0, 1]], np.float64)
 
 
 def desenhar_deteccao(foto: np.ndarray, cantos: np.ndarray | None) -> np.ndarray:

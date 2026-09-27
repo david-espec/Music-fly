@@ -47,6 +47,7 @@ class Resultado:
     correcao: Correcao | None
     marcada: np.ndarray  # foto original com as marcacoes
     retificada: np.ndarray  # folha endireitada com as marcacoes
+    pagina: np.ndarray  # pagina limpa (scanner) com as marcacoes, para o PDF
 
     def to_dict(self):
         d = self.leitura.to_dict()
@@ -56,14 +57,18 @@ class Resultado:
 
 
 def processar(img: np.ndarray, gabarito: Gabarito | None = None, opcoes=None, ordem="colunas",
-              limiar=None, parcial=False) -> Resultado:
+              limiar=None, parcial=False, filtro: str = "cor") -> Resultado:
+    from .digitalizar import digitalizar
+
     leitura = ler_gabarito(img, opcoes=opcoes, ordem=ordem, limiar=limiar)
     correcao = corrigir(leitura, gabarito, parcial=parcial) if gabarito else None
+    pagina = digitalizar(img, filtro, leitura=leitura, correcao=correcao)
     return Resultado(
         leitura,
         correcao,
         desenhar(leitura, correcao, na_foto=img),
         desenhar(leitura, correcao),
+        pagina.imagem,
     )
 
 

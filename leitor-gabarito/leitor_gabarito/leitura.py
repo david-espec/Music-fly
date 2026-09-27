@@ -335,7 +335,27 @@ def _completar_linhas(linhas, bloco, tam):
     return saida
 
 
-def _montar_questoes(cands: list[_Cand], n_opcoes: int | None, ordem: str):
+def _vaos_limpos(posicoes, tam: float, tinta: np.ndarray) -> bool:
+    """Entre duas bolhas vizinhas de uma questao ha papel em branco. Entre duas
+    letras "o" de uma palavra ha outras letras: e o que separa uma linha de
+    bolhas de uma linha de texto que por acaso se alinhou."""
+    h, w = tinta.shape
+    vaos = limpos = 0
+    for (xa, ya, ok_a), (xb, yb, ok_b) in zip(posicoes, posicoes[1:]):
+        if not (ok_a and ok_b):
+            continue
+        x0, x1 = int(xa + 0.6 * tam), int(xb - 0.6 * tam)
+        if x1 - x0 < 3:
+            continue  # bolhas encostadas: nao ha vao para olhar
+        yc = (ya + yb) / 2
+        y0, y1 = max(0, int(yc - 0.25 * tam)), min(h, int(yc + 0.25 * tam) + 1)
+        vaos += 1
+        if tinta[y0:y1, max(0, x0) : min(w, x1)].mean() < 0.08:
+            limpos += 1
+    return vaos == 0 or limpos >= 0.75 * vaos
+
+
+def _montar_questoes(cands: list[_Cand], n_opcoes: int | None, ordem: str, tinta: np.ndarray | None = None):
     if not cands:
         return [], 0.0
     tam = float(np.median([c.tam for c in cands]))
@@ -347,6 +367,9 @@ def _montar_questoes(cands: list[_Cand], n_opcoes: int | None, ordem: str):
     maior = max(len(g) for g in grupos_x)
     colunas = [g for g in grupos_x if len(g) >= 2 and len(g) >= 0.2 * maior]
     blocos = _blocos([(float(np.mean(xs[g])), len(g)) for g in colunas], n_opcoes)
+    # As alternativas de uma questao ficam perto umas das outras. Colunas muito
+    # afastadas so "formam" um bloco por coincidencia (letras de texto alinhadas).
+    blocos = [b for b in blocos if len(b) < 2 or max(np.diff(b)) <= 4 * tam]
 
     brutas: list[tuple[float, float, list[tuple[float, float, bool]]]] = []
     for bloco in blocos:
@@ -368,6 +391,12 @@ def _montar_questoes(cands: list[_Cand], n_opcoes: int | None, ordem: str):
             # Linha com menos da metade das bolhas nao e questao (texto alinhado por acaso).
             if achadas * 2 >= len(bloco) + (1 if len(bloco) % 2 else 0):
                 linhas.append((y_linha, posicoes))
+        if tinta is not None and linhas:
+            boas = [(y, pos) for y, pos in linhas if _vaos_limpos(pos, tam, tinta)]
+            # Bloco em que a maioria das linhas tem tinta entre as "bolhas" e texto.
+            if len(boas) * 2 < len(linhas):
+                continue
+            linhas = boas
         brutas.extend((bloco[0], y, pos) for y, pos in _completar_linhas(linhas, bloco, tam))
 
     if ordem == "linhas":
@@ -426,6 +455,7 @@ def ler_gabarito(
     ordem: str = "colunas",
     limiar: float | None = None,
     procurar_folha: bool = True,
+    cantos: np.ndarray | None = None,
 ) -> Leitura:
     """Le uma foto (BGR) de folha de respostas.
 
@@ -433,6 +463,8 @@ def ler_gabarito(
     Sem ele, o numero de alternativas e deduzido da folha e os rotulos sao A, B, C...
     `ordem`: "colunas" numera de cima para baixo e depois a coluna seguinte;
     "linhas" numera da esquerda para a direita, linha por linha.
+    `cantos`: cantos da folha ja conhecidos (o scanner passa os que achou,
+    para a leitura e a pagina do PDF usarem exatamente o mesmo recorte).
     """
     if imagem is None or imagem.size == 0:
         raise ValueError("imagem vazia")
@@ -441,7 +473,8 @@ def ler_gabarito(
     rotulos = list(opcoes) if opcoes else None
     avisos: list[str] = []
 
-    cantos = encontrar_folha(imagem) if procurar_folha else None
+    if cantos is None and procurar_folha:
+        cantos = encontrar_folha(imagem)
     if procurar_folha and cantos is None:
         avisos.append("Bordas da folha nao encontradas; usada a imagem inteira.")
     ret, H = retificar(imagem, cantos)
@@ -449,7 +482,8 @@ def ler_gabarito(
     norm = normalizar_iluminacao(cinza)
 
     cands = _candidatas(norm)
-    brutas, tam = _montar_questoes(cands, len(rotulos) if rotulos else None, ordem)
+    tinta_vaos = (_binarizar(norm) > 0).astype(np.float32)
+    brutas, tam = _montar_questoes(cands, len(rotulos) if rotulos else None, ordem, tinta_vaos)
     if not brutas:
         avisos.append("Nenhuma questao encontrada. Confira se a folha inteira aparece na foto.")
         return Leitura([], ret, H, cantos is not None, 0.5, rotulos or [], avisos, cantos)

@@ -32,6 +32,29 @@ def _ponto(x, y, H_inv):
     return int(p[0]), int(p[1])
 
 
+def caixas_questoes(leitura: Leitura) -> dict[int, tuple[int, int, int, int]]:
+    """Retangulo de cada questao (x0, y0, x1, y1) sem encostar nas vizinhas:
+    a folga alem da borda das bolhas e limitada pelo vao ate a questao de
+    cima e a de baixo, para cada questao ter o seu contorno separado."""
+    info = []
+    for q in leitura.questoes:
+        r = max(b.raio for b in q.bolhas)
+        xs = [b.x for b in q.bolhas]
+        ys = [b.y for b in q.bolhas]
+        info.append((q.numero, min(xs) - r, max(xs) + r, min(ys) - r, max(ys) + r, r))
+    out = {}
+    for n, x0, x1, y0, y1, r in info:
+        # Vao ate a questao mais proxima na mesma coluna.
+        vao = min(
+            (max(b0 - y1, y0 - b1) for m, a0, a1, b0, b1, _ in info if m != n and a0 < x1 and a1 > x0),
+            default=float("inf"),
+        )
+        folga_y = max(1.0, min(0.5 * r, vao * 0.3))
+        folga_x = 0.6 * r
+        out[n] = (int(x0 - folga_x), int(y0 - folga_y), int(x1 + folga_x), int(y1 + folga_y))
+    return out
+
+
 def desenhar(
     leitura: Leitura,
     correcao: Correcao | None = None,
@@ -46,35 +69,63 @@ def desenhar(
     cinza (em branco), e a alternativa correta que faltou contornada em laranja.
     """
     if na_foto is not None:
-        base = na_foto.copy()
-        H_inv = np.linalg.inv(leitura.homografia)
-        # Espessura proporcional a escala da foto.
-        escala = max(1.0, base.shape[1] / leitura.retificada.shape[1])
-    else:
-        base = leitura.retificada.copy()
-        H_inv = None
-        escala = 1.0
-    esp = max(2, int(round(3 * escala)))
-    camada = base.copy()
-    resultados = correcao.por_numero() if correcao else {}
+        return desenhar_em(
+            leitura,
+            na_foto,
+            np.linalg.inv(leitura.homografia),
+            correcao,
+            mostrar_questoes,
+            # Espessura proporcional a escala da foto.
+            escala=max(1.0, na_foto.shape[1] / leitura.retificada.shape[1]),
+            contorno_folha=True,
+        )
+    return desenhar_em(leitura, leitura.retificada, None, correcao, mostrar_questoes)
 
+
+def desenhar_em(
+    leitura: Leitura,
+    imagem: np.ndarray,
+    transformacao: np.ndarray | None,
+    correcao: Correcao | None = None,
+    mostrar_questoes: bool = True,
+    escala: float = 1.0,
+    contorno_folha: bool = False,
+) -> np.ndarray:
+    """Desenha as marcacoes numa imagem qualquer.
+
+    `transformacao` (3x3) leva coordenadas da folha retificada da leitura para
+    as de `imagem`; None quando a imagem e a propria folha retificada. Serve
+    para a foto original, a folha retificada e a pagina do scanner/PDF.
+    """
+    base = imagem.copy()
+    H_inv = transformacao
+    esp = max(2, int(round(3 * escala)))
+    resultados = correcao.por_numero() if correcao else {}
+    caixas = caixas_questoes(leitura)
+
+    # 1) Preenchimento verde translucido nas bolhas marcadas. Forte, para
+    #    aparecer ate sobre a bolha pintada de preto.
+    camada = base.copy()
+    for q in leitura.questoes:
+        for b in q.bolhas:
+            if b.marcada:
+                cv2.fillPoly(camada, [_contorno(b.x, b.y, b.raio * 0.95, H_inv)], VERDE, cv2.LINE_AA)
+    cv2.addWeighted(camada, 0.65, base, 0.35, 0, dst=base)
+
+    # 2) Linhas e rotulos por cima, nitidos.
     for q in leitura.questoes:
         res = resultados.get(q.numero)
         for b in q.bolhas:
             if b.marcada:
-                pts = _contorno(b.x, b.y, b.raio * 1.2, H_inv)
-                cv2.fillPoly(camada, [pts], VERDE, cv2.LINE_AA)
-                cv2.polylines(base, [pts], True, VERDE_ESCURO, esp, cv2.LINE_AA)
+                cv2.polylines(base, [_contorno(b.x, b.y, b.raio * 0.95, H_inv)], True, VERDE_ESCURO, esp, cv2.LINE_AA)
             elif res and b.opcao in res.esperado:
                 cv2.polylines(base, [_contorno(b.x, b.y, b.raio * 1.25, H_inv)], True, LARANJA, esp, cv2.LINE_AA)
 
         if mostrar_questoes:
-            x0, y0, x1, y1 = q.caixa
+            x0, y0, x1, y1 = caixas[q.numero]
             canto = [_ponto(x, y, H_inv) for x, y in [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]]
-            cor_caixa = AZUL
-            if len(q.marcadas) >= 2:
-                cor_caixa = LARANJA  # destaca questao com duas (ou mais) respostas
-            cv2.polylines(base, [np.array(canto, np.int32)], True, cor_caixa, max(1, esp // 2), cv2.LINE_AA)
+            # Contorno verde em cada questao: mostra onde o sistema leu.
+            cv2.polylines(base, [np.array(canto, np.int32)], True, VERDE_ESCURO, max(2, esp - 1), cv2.LINE_AA)
 
             if res is None:
                 cor = VERDE_ESCURO if q.marcadas else CINZA
@@ -83,22 +134,17 @@ def desenhar(
             rotulo = f"{q.numero}"
             if len(q.marcadas) >= 2:
                 rotulo += f" ({len(q.marcadas)}x)"
+                if res is None:
+                    cor = LARANJA  # destaca questao com duas (ou mais) respostas
             # Rotulo a direita da questao: a esquerda ja esta o numero impresso.
             org = _ponto(x1 + 6, (y0 + y1) / 2 + 6, H_inv)
             fonte = 0.45 * escala
             cv2.putText(base, rotulo, org, cv2.FONT_HERSHEY_SIMPLEX, fonte, (255, 255, 255), esp + 2, cv2.LINE_AA)
             cv2.putText(base, rotulo, org, cv2.FONT_HERSHEY_SIMPLEX, fonte, cor, max(1, esp - 1), cv2.LINE_AA)
 
-    if H_inv is not None and leitura.cantos is not None:
+    if contorno_folha and leitura.cantos is not None:
         # Contorno da folha identificada, como no scanner.
         cv2.polylines(base, [np.round(leitura.cantos).astype(np.int32)], True, AZUL, esp + 1, cv2.LINE_AA)
-
-    cv2.addWeighted(camada, 0.45, base, 0.55, 0, dst=base)
-    # Os contornos por cima do preenchimento translucido ficam nitidos.
-    for q in leitura.questoes:
-        for b in q.bolhas:
-            if b.marcada:
-                cv2.polylines(base, [_contorno(b.x, b.y, b.raio * 1.2, H_inv)], True, VERDE_ESCURO, esp, cv2.LINE_AA)
     return base
 
 

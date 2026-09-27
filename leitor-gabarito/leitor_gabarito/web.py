@@ -33,7 +33,8 @@ button{{margin-top:16px;padding:12px 22px;border:0;border-radius:10px;background
 img{{max-width:100%;border-radius:10px;display:block}} table{{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}}
 td,th{{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left}} .certa{{color:var(--ok);font-weight:700}} .errada{{color:var(--err);font-weight:700}}
 .dupla{{color:var(--warn);font-weight:700}} .big{{font-size:2rem;font-weight:800}} .aviso{{color:var(--warn)}}
-.tabs a{{margin-right:14px}}
+.tabs a{{margin-right:14px}} a.botao{{display:inline-block;padding:10px 18px;border-radius:10px;background:var(--ok);color:#fff;font-weight:700;text-decoration:none}}
+label.check{{display:flex;gap:8px;align-items:center;font-weight:600}}
 </style></head><body><main>
 <nav class="tabs"><b>Corrigir gabarito</b> · <a href="/digitalizar">Digitalizar documento</a></nav>
 <h1>Leitor de Gabarito</h1>
@@ -90,6 +91,11 @@ def _html_resultado(res) -> str:
         linhas.append(f"<tr><td>{q.numero}</td><td class='{classe}'>{escape(','.join(q.marcadas) or '—')}</td>"
                       f"<td class='{classe or 'muted'}'>{q.situacao}</td>{cel_gab}</tr>")
     cab = "<th>Q</th><th>Marcada</th><th>Situação</th>" + ("<th>Gabarito</th><th>Resultado</th>" if C else "")
+    from .digitalizar import gerar_pdf
+
+    pdf = base64.b64encode(gerar_pdf([res.pagina], titulo="gabarito_marcado")).decode()
+    botao_pdf = (f'<p><a class="botao" download="gabarito_marcado.pdf" '
+                 f'href="data:application/pdf;base64,{pdf}">Baixar PDF com as marcações</a></p>')
     placar = ""
     if C:
         placar = f'<p><span class="big">{C.acertos}/{C.total}</span> acertos · nota {C.nota:g}</p>'
@@ -99,7 +105,7 @@ def _html_resultado(res) -> str:
 <div><p class="tabs"><a href="#foto">Foto original</a><a href="#ret">Folha endireitada</a></p>
 <img id="foto" src="data:image/jpeg;base64,{_b64(res.marcada)}" alt="Foto com as respostas marcadas em verde">
 <h3 id="ret">Folha endireitada</h3><img src="data:image/jpeg;base64,{_b64(res.retificada)}" alt="Folha endireitada com as marcações"></div>
-<div>{placar}<p>{len(L.questoes)} questões · alternativas {escape(''.join(L.opcoes))} · {duplas} com duas respostas</p>{avisos}
+<div>{placar}{botao_pdf}<p>{len(L.questoes)} questões · alternativas {escape(''.join(L.opcoes))} · {duplas} com duas respostas</p>{avisos}
 <table><thead><tr>{cab}</tr></thead><tbody>{''.join(linhas)}</tbody></table></div></div>"""
 
 
@@ -153,10 +159,12 @@ def criar_app() -> Flask:
                 fotos = [f for f in request.files.getlist("fotos") if f and f.filename]
                 if not fotos:
                     raise ValueError("Envie ao menos uma foto.")
+                gabarito = obter_gabarito(request.form["gabarito"].strip()) if request.form.get("gabarito", "").strip() else None
                 paginas, deteccoes = [], []
                 for f in fotos:
                     img = _ler_upload(f)
-                    pag = digitalizar(img, filtro, int(request.form.get("girar", 0)))
+                    pag = digitalizar(img, filtro, int(request.form.get("girar", 0)),
+                                      marcar=request.form.get("marcar") == "1", gabarito=gabarito)
                     paginas.append(pag.imagem)
                     deteccoes.append((f.filename, pag, desenhar_deteccao(img, pag.cantos)))
                 nome = (request.form.get("nome") or "documento").strip() or "documento"
@@ -166,7 +174,8 @@ def criar_app() -> Flask:
                                      download_name=f"{nome}.pdf")
                 previa = "".join(
                     f'<div class="card res"><div><h3>{escape(n)} — '
-                    f'{"folha encontrada" if p.folha_encontrada else "folha não encontrada (foto inteira)"}</h3>'
+                    f'{"folha encontrada" if p.folha_encontrada else "folha não encontrada (foto inteira)"}'
+                    f'{f" · {len(p.leitura.questoes)} questões marcadas em verde" if p.marcada else ""}</h3>'
                     f'<img src="data:image/jpeg;base64,{_b64(d)}" alt="Folha identificada na foto"></div>'
                     f'<div><h3>Página</h3><img src="data:image/jpeg;base64,{_b64(p.imagem)}" alt="Página digitalizada"></div></div>'
                     for n, p, d in deteccoes)
@@ -174,6 +183,8 @@ def criar_app() -> Flask:
                 erro = f'<div class="card"><b>Erro:</b> {escape(str(e))}</div>'
         f = request.form
         sel = lambda campo, v, padrao: " selected" if f.get(campo, padrao) == v else ""  # noqa: E731
+        # Marcacao ligada por padrao; no POST vale o que veio no formulario.
+        marcar_checked = " checked" if request.method == "GET" or f.get("marcar") == "1" else ""
         form = f"""<form method="post" enctype="multipart/form-data">
   <label>Fotos (cada uma vira uma página, na ordem escolhida)</label>
   <input type="file" name="fotos" accept="image/*" multiple required>
@@ -191,6 +202,12 @@ def criar_app() -> Flask:
     <div><label>Girar</label><select name="girar">
       <option value="0">Não</option><option value="90">90° horário</option>
       <option value="180">180°</option><option value="270">90° anti-horário</option></select></div>
+  </div>
+  <div class="row">
+    <div><label>Gabarito (opcional, para corrigir na página)</label>
+      <input type="text" name="gabarito" value="{escape(f.get('gabarito', ''))}" placeholder="ABCDA… ou 1:A 2:B+D"></div>
+    <div><label>&nbsp;</label><label class="check"><input type="checkbox" name="marcar" value="1"{marcar_checked}>
+      Marcar em verde as bolhas preenchidas</label></div>
   </div>
   <button name="acao" value="previa">Ver prévia</button> <button name="acao" value="pdf">Baixar PDF</button>
 </form>"""

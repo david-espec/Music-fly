@@ -60,6 +60,7 @@ Para cada foto, na pasta de saída:
 | `<foto>.json` | questões, alternativas marcadas, situação e preenchimento de cada bolha |
 | `<foto>_questoes/` | uma imagem por questão (com `--recortes`) |
 | `resultados.csv` | uma linha por foto: acertos, nota e resposta de cada questão |
+| `gabaritos_marcados.pdf` | uma página por foto: a folha limpa (scanner), com **contorno verde em cada questão lida** e as bolhas marcadas em verde |
 
 Opções úteis:
 
@@ -69,6 +70,8 @@ Opções úteis:
 | `--ordem linhas` | numeração da esquerda para a direita, linha a linha. O padrão (`colunas`) é de cima para baixo, coluna por coluna |
 | `--parcial` | questão de duas respostas vale meio ponto por alternativa certa (sem nenhuma errada marcada) |
 | `--limiar 0.5` | fixa o preenchimento mínimo para contar como marcada. O padrão é calculado por folha |
+| `--pdf arquivo.pdf` | onde salvar o PDF marcado (`--sem-pdf` para não gerar) |
+| `--filtro pb` | filtro das páginas do PDF: `cor` (padrão), `cinza`, `pb`, `original` |
 
 ### Digitalizar documentos (scanner)
 
@@ -87,6 +90,13 @@ python -m leitor_gabarito digitalizar fotos/ --filtro pb --pagina a4 --deteccao 
 | `--girar 90` | gira as páginas (90, 180 ou 270 graus) |
 | `--deteccao` | salva `<foto>_deteccao.jpg`, com a folha identificada contornada em azul |
 | `--imagens` | salva cada página também como JPEG |
+| `--gabarito "1:A 2:B+D"` | corrige e mostra o resultado na página (número da questão verde/vermelho) |
+| `--sem-marcacoes` | só digitaliza, sem marcar as bolhas |
+
+Se a folha for um gabarito, **o PDF já sai marcado**: cada questão lida ganha
+um contorno verde, mostrando onde o sistema leu, e as bolhas preenchidas
+ficam pintadas de verde. Questões com duas respostas ganham o rótulo `2x` em
+laranja. Em documento comum (sem bolhas), a página sai só limpa.
 
 Os filtros estimam a luz que cai sobre o papel e dividem a imagem por ela:
 sombra da mão, canto escuro e luz amarelada somem. O P&B aplica depois um
@@ -100,8 +110,9 @@ python -m leitor_gabarito web       # abre em http://127.0.0.1:5000
 
 Envie a foto (no celular, o botão abre a câmera), opcionalmente o gabarito em
 texto ou a foto da folha do professor, e veja a imagem marcada e a tabela de
-resultados. A aba **Digitalizar documento** recebe várias fotos, mostra a
-folha identificada em cada uma e a página limpa, e baixa o PDF. Nada é
+resultados, com o botão **Baixar PDF com as marcações**. A aba **Digitalizar
+documento** recebe várias fotos, mostra a folha identificada em cada uma e a
+página limpa já marcada, e baixa o PDF. Nada é
 gravado em disco. Para acessar do celular na mesma rede,
 use `--host 0.0.0.0`.
 
@@ -171,9 +182,10 @@ Tudo em `leitor_gabarito/`:
    fica de fora). O corte entre marcada e vazia é calculado por folha, no meio
    do vão entre os dois grupos, então caneta, lápis, X e rabisco funcionam sem
    ajuste. Bolhas perto do corte aparecem como "duvidosas" nos avisos.
-5. **Desenho** (`desenho.py`): as marcadas ganham um círculo verde, desenhado
-   na folha endireitada e também levado de volta para a foto original, no
-   lugar certo apesar da perspectiva. Com gabarito, o número da questão fica
+5. **Desenho** (`desenho.py`): cada questão lida ganha um contorno verde (sem
+   encostar nas vizinhas) e as bolhas marcadas um círculo verde. O mesmo
+   desenho vai para a folha endireitada, para a foto original (no lugar
+   certo apesar da perspectiva) e para a página do scanner/PDF. Com gabarito, o número da questão fica
    verde (certa), vermelho (errada) ou cinza (em branco), e a alternativa
    correta que faltou é contornada em laranja.
 
@@ -197,7 +209,13 @@ questão por questão:
 | A–E, 50 questões, 5 colunas | bolhas pequenas e encostadas, preenchimento em rabisco |
 | A–C, 40 questões, 4 colunas | foto bem torta, escura, ruidosa e desfocada |
 
-O scanner tem testes próprios: folha achada e proporção recuperada, recorte
+O PDF marcado tem testes próprios: exatamente uma marca verde por bolha
+preenchida, em cima da bolha certa, com todos os filtros; o contorno verde de
+cada questão no lugar em que ela foi lida; nenhuma marca num documento de
+texto comum; e as marcações presentes nos PDFs gerados pelos comandos `ler` e
+`digitalizar` e pelas duas telas da interface web.
+
+O scanner também tem testes: folha achada e proporção recuperada, recorte
 sem pegar a mesa, filtros tirando uma sombra forte, PDF válido (com as
 imagens decodificando de volta) e a aba web gerando o PDF.
 
@@ -207,6 +225,11 @@ com questões de duas respostas, gabarito a partir da folha do professor e a
 interface web.
 
 ## Limites conhecidos
+
+- Texto comum é filtrado (entre duas bolhas de uma questão há papel em branco,
+  entre letras de uma palavra não), mas uma folha com muito texto em volta das
+  bolhas ainda pode gerar algum falso positivo: confira o contorno verde, que
+  mostra exatamente o que foi lido como questão.
 
 - No scanner, a proporção da página sai do comprimento dos lados da folha na
   foto; com perspectiva forte ela pode ficar alguns por cento diferente da

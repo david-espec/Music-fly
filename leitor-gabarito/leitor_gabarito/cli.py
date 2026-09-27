@@ -37,15 +37,17 @@ def cmd_ler(a) -> int:
         print(f"Gabarito com {len(gabarito)} questoes.")
     pasta = Path(a.saida)
     linhas = []
+    paginas_pdf = []
     falhas = 0
     for foto in fotos:
         try:
-            res = processar(abrir_imagem(foto), gabarito, a.opcoes, a.ordem, a.limiar, a.parcial)
+            res = processar(abrir_imagem(foto), gabarito, a.opcoes, a.ordem, a.limiar, a.parcial, a.filtro)
         except Exception as e:  # uma foto ruim nao para o lote
             print(f"\n{foto}: ERRO — {e}", file=sys.stderr)
             falhas += 1
             continue
         arquivos = salvar_resultado(res, foto.stem, pasta, a.recortes)
+        paginas_pdf.append(res.pagina)
         L, C = res.leitura, res.correcao
         print(f"\n{foto}  —  {len(L.questoes)} questoes, alternativas {''.join(L.opcoes)}")
         for aviso in L.avisos:
@@ -78,6 +80,13 @@ def cmd_ler(a) -> int:
             w.writeheader()
             w.writerows(linhas)
         print(f"\nResumo: {csv_path}")
+    if paginas_pdf and not a.sem_pdf:
+        from .digitalizar import gerar_pdf
+
+        pdf_path = Path(a.pdf) if a.pdf else pasta / "gabaritos_marcados.pdf"
+        pdf_path.parent.mkdir(parents=True, exist_ok=True)
+        pdf_path.write_bytes(gerar_pdf(paginas_pdf, titulo=pdf_path.stem, tamanho=a.pagina))
+        print(f"PDF com as marcacoes ({len(paginas_pdf)} pagina(s)): {pdf_path}")
     return 1 if falhas else 0
 
 
@@ -90,11 +99,19 @@ def cmd_digitalizar(a) -> int:
         return 2
     pasta = Path(a.saida)
     pasta.mkdir(parents=True, exist_ok=True)
+    gabarito = obter_gabarito(a.gabarito, a.opcoes, a.ordem) if a.gabarito else None
     paginas = []
     for foto in fotos:
         img = abrir_imagem(foto)
-        pag = digitalizar(img, a.filtro, a.girar)
+        pag = digitalizar(img, a.filtro, a.girar, marcar=not a.sem_marcacoes, opcoes=a.opcoes,
+                          ordem=a.ordem, gabarito=gabarito)
         situacao = "folha encontrada" if pag.folha_encontrada else "folha NAO encontrada, usada a foto inteira"
+        if pag.marcada:
+            L = pag.leitura
+            situacao += (f"; gabarito com {len(L.questoes)} questoes, "
+                         f"{sum(bool(q.marcadas) for q in L.questoes)} respondidas (marcadas em verde)")
+            if pag.correcao:
+                situacao += f"; acertos {pag.correcao.acertos}/{pag.correcao.total}"
         h, w = pag.imagem.shape[:2]
         print(f"{foto}: {situacao} ({w}x{h})")
         if a.imagens:
@@ -150,6 +167,10 @@ def main(argv=None) -> int:
     l.add_argument("--limiar", type=float, help="preenchimento minimo (0-1) para contar como marcada; padrao: automatico")
     l.add_argument("--parcial", action="store_true", help="questao de duas respostas vale meio ponto por alternativa certa")
     l.add_argument("--recortes", action="store_true", help="salva uma imagem por questao")
+    l.add_argument("--pdf", help="PDF com as folhas marcadas (padrao: <saida>/gabaritos_marcados.pdf)")
+    l.add_argument("--sem-pdf", action="store_true", help="nao gera o PDF")
+    l.add_argument("--filtro", "-f", choices=["cor", "cinza", "pb", "original"], default="cor", help="filtro das paginas do PDF")
+    l.add_argument("--pagina", choices=["auto", "a4", "carta"], default="auto", help="tamanho da pagina do PDF")
     l.add_argument("--saida", "-s", default="saida", help="pasta de saida (padrao: saida)")
     l.set_defaults(func=cmd_ler)
 
@@ -161,6 +182,10 @@ def main(argv=None) -> int:
     d.add_argument("--pdf", help="arquivo PDF de saida (padrao: <saida>/documento.pdf)")
     d.add_argument("--imagens", action="store_true", help="salva tambem cada pagina como JPEG")
     d.add_argument("--deteccao", action="store_true", help="salva a foto com o contorno da folha encontrada")
+    d.add_argument("--sem-marcacoes", action="store_true", help="nao marca as bolhas preenchidas (so digitaliza)")
+    d.add_argument("--gabarito", "-g", help="corrige e mostra o resultado na pagina (mesmos formatos do comando ler)")
+    d.add_argument("--opcoes", "-o", help="rotulos das alternativas, ex.: ABCDE, VF")
+    d.add_argument("--ordem", choices=["colunas", "linhas"], default="colunas")
     d.add_argument("--saida", "-s", default="saida")
     d.set_defaults(func=cmd_digitalizar)
 
