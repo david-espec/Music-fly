@@ -109,7 +109,7 @@ def cmd_digitalizar(a) -> int:
         if pag.marcada:
             L = pag.leitura
             situacao += (f"; gabarito com {len(L.questoes)} questoes, "
-                         f"{sum(bool(q.marcadas) for q in L.questoes)} respondidas (marcadas em verde)")
+                         f"{sum(bool(q.marcadas) for q in L.questoes)} respondidas (circuladas de verde no PDF)")
             if pag.correcao:
                 situacao += f"; acertos {pag.correcao.acertos}/{pag.correcao.total}"
         h, w = pag.imagem.shape[:2]
