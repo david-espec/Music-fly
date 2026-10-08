@@ -128,9 +128,9 @@ object FilterStrip {
     private var cachedSample: Bitmap? = null
 
     /**
-     * Foto fixa de exemplo (paisagem de montanha e rio do conjunto de imagens
-     * de teste da Kodak, liberado para uso livre): ceu, neve, verde e agua
-     * mostram bem a diferenca entre os filtros.
+     * Foto fixa de exemplo escolhida pelo dono do app (cachoeira entre pedras
+     * com musgo): o azul da agua e o verde do musgo mostram bem a diferenca
+     * entre os filtros.
      */
     private fun sample(context: Context): Bitmap =
         cachedSample ?: android.graphics.BitmapFactory.decodeResource(context.resources, R.drawable.filter_sample)
