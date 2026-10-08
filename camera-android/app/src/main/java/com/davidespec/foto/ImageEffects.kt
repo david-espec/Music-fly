@@ -223,6 +223,38 @@ object ImageEffects {
         return out
     }
 
+    // --- Melhoria automatica -----------------------------------------------------------
+
+    /**
+     * "Aprimorar": estica os niveis de luz para usar a faixa toda (sem
+     * estourar), da mais vida as cores e um toque de nitidez. Cada ajuste e
+     * limitado para nao exagerar em fotos que ja estao boas.
+     */
+    fun autoEnhance(source: Bitmap): Bitmap {
+        val l = luma(source, 256)
+        val hist = IntArray(256)
+        l.data.forEach { hist[it.coerceIn(0, 255)]++ }
+        val total = l.data.size
+        fun percentile(p: Float): Int {
+            var acc = 0
+            for (v in 0..255) {
+                acc += hist[v]
+                if (acc >= total * p) return v
+            }
+            return 255
+        }
+        val lo = min(percentile(0.004f), 40)
+        val hi = max(percentile(0.996f), 205)
+        val lut = IntArray(256) { v ->
+            val stretched = (v - lo) * 255f / max(1, hi - lo)
+            clamp(v + (stretched - v) * 0.7f)
+        }
+        var out = applyLut(source, lut)
+        out = applyMatrix(out, Filters.saturation(1.12f))
+        out = sharpen(out, 0.35f)
+        return out
+    }
+
     // --- Varias fotos: noite e HDR ------------------------------------------------------
 
     /** Luminancia reduzida para alinhar quadros (1 byte por pixel). */

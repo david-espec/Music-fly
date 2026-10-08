@@ -54,6 +54,8 @@ class CameraSettings(context: Context) {
     // --- Efeitos ----------------------------------------------------------------
     var filter by string("filter", "original")
     var filterIntensity by int("filterIntensity", 100)
+    /** Melhoria automatica (niveis, cor e nitidez) nas fotos. */
+    var enhance by boolean("enhance", false)
     var portraitBlur by int("portraitBlur", 60)
     var foodIntensity by int("foodIntensity", 50)
     /** -1 frio, 0 neutro, 1 quente. */

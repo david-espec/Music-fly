@@ -11,28 +11,70 @@ import android.graphics.ColorMatrix
  */
 object Filters {
 
-    class Filter(val id: String, val name: String, private val build: () -> ColorMatrix) {
+    class Filter(
+        val id: String,
+        val name: String,
+        val category: String,
+        private val build: () -> ColorMatrix,
+    ) {
         /** Matriz na intensidade pedida (0..1): 0 = original, 1 = filtro completo. */
         fun matrix(intensity: Float): ColorMatrix = mix(ColorMatrix(), build(), intensity)
     }
 
+    private const val BASIC = "Básicos"
+    private const val VIVID = "Vívidos"
+    private const val SOCIAL = "Redes sociais"
+    private const val CINEMA = "Cinema"
+    private const val MONO = "P&B"
+
+    // Os ids antigos foram mantidos: a escolha salva continua valendo.
     val all: List<Filter> = listOf(
-        Filter("original", "Original") { ColorMatrix() },
-        Filter("natural", "Natural") { chain(contrast(1.05f), saturation(1.08f)) },
-        Filter("vivo", "Vivo") { chain(saturation(1.45f), contrast(1.12f)) },
-        Filter("quente", "Quente") { chain(temperature(0.35f), saturation(1.05f)) },
-        Filter("frio", "Frio") { chain(temperature(-0.35f), saturation(0.95f)) },
-        Filter("vintage", "Vintage") { chain(sepia(0.55f), contrast(0.9f), lift(18f)) },
-        Filter("retro", "Retrô") { chain(saturation(0.75f), scale(1.08f, 1.02f, 0.85f), lift(12f), contrast(0.95f)) },
-        Filter("cinema", "Cinema") { chain(saturation(0.82f), contrast(1.18f), offset(-6f, 0f, 10f)) },
-        Filter("drama", "Drama") { chain(contrast(1.4f), saturation(0.85f), brightness(-12f)) },
-        Filter("pb", "Preto e branco") { chain(saturation(0f), contrast(1.25f)) },
-        Filter("cinza", "Cinza") { saturation(0f) },
-        Filter("fade", "Fade") { chain(contrast(0.8f), lift(30f), saturation(0.9f)) },
-        Filter("dourado", "Dourado") { chain(scale(1.12f, 1.04f, 0.78f), saturation(1.1f)) },
-        Filter("noite", "Noite") { chain(scale(0.85f, 0.92f, 1.12f), saturation(0.7f), brightness(-8f)) },
-        Filter("por_do_sol", "Pôr do sol") { chain(scale(1.16f, 0.95f, 0.82f), saturation(1.2f), offset(8f, 0f, 6f)) },
+        Filter("original", "Original", BASIC) { ColorMatrix() },
+        Filter("natural", "Natural", BASIC) { chain(contrast(1.05f), saturation(1.08f)) },
+        Filter("quente", "Quente", BASIC) { chain(temperature(0.35f), saturation(1.05f)) },
+        Filter("frio", "Frio", BASIC) { chain(temperature(-0.35f), saturation(0.95f)) },
+        Filter("leve", "Leve", BASIC) { chain(brightness(14f), contrast(0.94f), saturation(0.92f)) },
+
+        // Estilos de camera de celular: cores fortes, versoes quente e fria.
+        Filter("vivo", "Vívido", VIVID) { chain(saturation(1.45f), contrast(1.12f)) },
+        Filter("vivido_quente", "Vívido quente", VIVID) { chain(saturation(1.4f), contrast(1.1f), temperature(0.3f)) },
+        Filter("vivido_frio", "Vívido frio", VIVID) { chain(saturation(1.4f), contrast(1.1f), temperature(-0.3f)) },
+        Filter("drama", "Dramático", VIVID) { chain(contrast(1.4f), saturation(0.85f), brightness(-12f)) },
+        Filter("drama_quente", "Dramático quente", VIVID) { chain(contrast(1.35f), saturation(0.9f), brightness(-10f), temperature(0.35f)) },
+        Filter("drama_frio", "Dramático frio", VIVID) { chain(contrast(1.35f), saturation(0.85f), brightness(-10f), temperature(-0.35f)) },
+
+        // Estilos populares nas redes: contraste com sombras frias, pastel, verao...
+        Filter("brilhante", "Brilhante", SOCIAL) { chain(contrast(1.2f), saturation(1.3f), offset(-4f, 0f, 8f)) },
+        Filter("pastel", "Pastel", SOCIAL) { chain(lift(28f), saturation(0.8f), contrast(0.9f), offset(6f, 2f, 6f)) },
+        Filter("verao", "Verão", SOCIAL) { chain(sepia(0.18f), temperature(0.25f), lift(14f), saturation(1.12f)) },
+        Filter("tropical", "Tropical", SOCIAL) { chain(saturation(1.35f), scale(0.98f, 1.08f, 1.04f), contrast(1.06f)) },
+        Filter("rosado", "Rosado", SOCIAL) { chain(lift(20f), contrast(0.92f), saturation(0.9f), scale(1.06f, 0.96f, 1.02f)) },
+        Filter("suave", "Suave", SOCIAL) { chain(lift(22f), contrast(0.88f), saturation(0.85f), scale(1.03f, 1.02f, 0.94f)) },
+        Filter("fade", "Fade", SOCIAL) { chain(contrast(0.8f), lift(30f), saturation(0.9f)) },
+        Filter("dourado", "Hora dourada", SOCIAL) { chain(scale(1.12f, 1.04f, 0.78f), saturation(1.1f)) },
+        Filter("por_do_sol", "Pôr do sol", SOCIAL) { chain(scale(1.16f, 0.95f, 0.82f), saturation(1.2f), offset(8f, 0f, 6f)) },
+        Filter("nordico", "Nórdico", SOCIAL) { chain(temperature(-0.25f), saturation(0.7f), brightness(10f), contrast(1.05f)) },
+
+        // Cinema: tons de filme e looks de clipe.
+        Filter("cinema", "Cinema", CINEMA) { chain(saturation(0.82f), contrast(1.18f), offset(-6f, 0f, 10f)) },
+        Filter("teal_orange", "Teal & Orange", CINEMA) { chain(contrast(1.15f), scale(1.12f, 0.98f, 0.9f), offset(-10f, 2f, 14f), saturation(1.1f)) },
+        Filter("filme", "Filme", CINEMA) { chain(lift(12f), temperature(0.15f), saturation(1.05f), contrast(1.04f)) },
+        Filter("moody", "Moody", CINEMA) { chain(saturation(0.65f), brightness(-14f), contrast(1.12f), offset(-2f, 0f, 8f)) },
+        Filter("cyberpunk", "Cyberpunk", CINEMA) { chain(scale(1.12f, 0.82f, 1.22f), contrast(1.2f), saturation(1.25f)) },
+        Filter("anos70", "Anos 70", CINEMA) { chain(sepia(0.4f), temperature(0.3f), lift(20f), contrast(0.92f)) },
+        Filter("vintage", "Vintage", CINEMA) { chain(sepia(0.55f), contrast(0.9f), lift(18f)) },
+        Filter("retro", "Retrô", CINEMA) { chain(saturation(0.75f), scale(1.08f, 1.02f, 0.85f), lift(12f), contrast(0.95f)) },
+        Filter("noite", "Noite", CINEMA) { chain(scale(0.85f, 0.92f, 1.12f), saturation(0.7f), brightness(-8f)) },
+
+        // Preto e branco.
+        Filter("pb", "Mono", MONO) { chain(saturation(0f), contrast(1.25f)) },
+        Filter("prata", "Prata", MONO) { chain(saturation(0f), lift(16f), contrast(1.05f), scale(0.97f, 0.99f, 1.04f)) },
+        Filter("noir", "Noir", MONO) { chain(saturation(0f), contrast(1.6f), brightness(-14f)) },
+        Filter("cinza", "Cinza", MONO) { saturation(0f) },
     )
+
+    /** Ajuste usado no visor para a melhoria automatica (a foto recebe a versao completa). */
+    fun enhancePreview(): ColorMatrix = chain(contrast(1.06f), saturation(1.12f))
 
     fun byId(id: String): Filter = all.firstOrNull { it.id == id } ?: all.first()
 

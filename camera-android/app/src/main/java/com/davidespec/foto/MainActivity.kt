@@ -203,6 +203,10 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
     private var macroSearched = false
 
     private val manual = ManualControls()
+    /** Filtro de video em tempo real (OpenGL). Criado uma vez e reaproveitado. */
+    private val videoFilter by lazy { VideoFilterProcessor() }
+    private var videoFilterBound = false
+    private var videoFilterCreated = false
     private lateinit var settings: CameraSettings
     private lateinit var analyzer: FrameAnalyzer
     private lateinit var analysisExecutor: ExecutorService
@@ -442,6 +446,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
 
     override fun onDestroy() {
         super.onDestroy()
+        if (videoFilterBound || videoFilterCreated) videoFilter.release()
         io.shutdown()
         analysisExecutor.shutdown()
         analyzer.close()
@@ -876,7 +881,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
     }
 
     private fun renderEffectsButton() {
-        val active = settings.filter != "original" || settings.beautyActive
+        val active = settings.filter != "original" || settings.beautyActive || settings.enhance
         tint(effectsButton, active || (panel.visibility == View.VISIBLE && panelTab != "pro"))
     }
 
@@ -892,7 +897,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         timerButton.visibility = if (video || mode == Mode.PANORAMA) View.GONE else View.VISIBLE
         micButton.visibility = if (video) View.VISIBLE else View.GONE
         fpsButton.visibility = if (video) View.VISIBLE else View.GONE
-        effectsButton.visibility = if (video || mode == Mode.PANORAMA) View.GONE else View.VISIBLE
+        effectsButton.visibility = if (mode == Mode.PANORAMA) View.GONE else View.VISIBLE
         switchButton.visibility = if (mode == Mode.MACRO || mode == Mode.PANORAMA) View.INVISIBLE else View.VISIBLE
         panoramaGuide.visibility = if (mode == Mode.PANORAMA) View.VISIBLE else View.GONE
         if (mode == Mode.PANORAMA) renderPanoramaIdle()
@@ -1151,10 +1156,21 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         try {
             provider.unbindAll()
             val viewPort = if (mode != Mode.VIDEO && mode != Mode.PANORAMA) preview.viewPort else null
-            val bound = if (viewPort != null) {
-                val group = UseCaseGroup.Builder().setViewPort(viewPort)
+            // Filtro gravado no video: so quando ha filtro escolhido; some no ultimo recuo.
+            val effect = if (mode == Mode.VIDEO && videoFilterWanted() && level <= 2) {
+                videoFilterCreated = true
+                videoFilter.setMatrix(filterMatrix())
+                VideoFilterEffect(videoFilter)
+            } else {
+                null
+            }
+            videoFilterBound = false
+            val bound = if (viewPort != null || effect != null) {
+                val group = UseCaseGroup.Builder()
+                viewPort?.let { group.setViewPort(it) }
                 useCases.forEach { group.addUseCase(it) }
-                provider.bindToLifecycle(this, selector, group.build())
+                effect?.let { group.addEffect(it) }
+                provider.bindToLifecycle(this, selector, group.build()).also { videoFilterBound = effect != null }
             } else {
                 provider.bindToLifecycle(this, selector, *useCases.toTypedArray())
             }
@@ -1799,11 +1815,14 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
 
     // --- Filtros e efeitos no visor --------------------------------------------------------------
 
-    private fun filterApplies() = mode in listOf(Mode.PHOTO, Mode.PORTRAIT, Mode.PRO, Mode.MACRO, Mode.NIGHT, Mode.FOOD)
+    private fun filterApplies() = mode in listOf(Mode.PHOTO, Mode.PORTRAIT, Mode.PRO, Mode.MACRO, Mode.NIGHT, Mode.FOOD, Mode.VIDEO)
+    private fun enhanceApplies() = settings.enhance && mode in listOf(Mode.PHOTO, Mode.PORTRAIT, Mode.PRO, Mode.MACRO, Mode.FOOD)
+    private fun videoFilterWanted() = settings.filter != "original"
     private fun beautyApplies() = mode == Mode.PHOTO || mode == Mode.PORTRAIT
 
     private fun filterMatrix(): ColorMatrix {
         val m = ColorMatrix()
+        if (enhanceApplies()) m.postConcat(Filters.enhancePreview())
         if (filterApplies()) m.postConcat(Filters.byId(settings.filter).matrix(settings.filterIntensity / 100f))
         if (mode == Mode.FOOD) m.postConcat(foodMatrix())
         return m
@@ -1821,6 +1840,12 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
     /** Pinta o visor com o filtro (GPU, camada do PreviewView). */
     private fun applyPreviewFilter() {
         val matrix = filterMatrix()
+        if (mode == Mode.VIDEO) {
+            preview.setLayerType(View.LAYER_TYPE_NONE, null)
+            if (videoFilterBound) videoFilter.setMatrix(matrix)
+            renderEffectsButton()
+            return
+        }
         if (Filters.isIdentity(matrix)) {
             preview.setLayerType(View.LAYER_TYPE_NONE, null)
         } else {
@@ -1925,14 +1950,24 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         when (current) {
             "filters" -> {
                 // Miniaturas com a imagem atual do visor (sem filtro) e cada filtro aplicado.
-                val frame = try {
+                // No video com filtro ligado o visor ja vem filtrado: usa a cena de exemplo.
+                val frame = if (mode == Mode.VIDEO && videoFilterBound) null else try {
                     preview.bitmap
                 } catch (error: Exception) {
                     null
                 }
+                if (mode != Mode.VIDEO) {
+                    panel.addView(row(chip(if (settings.enhance) "✨ Aprimorar: ligado" else "✨ Aprimorar", settings.enhance) {
+                        settings.enhance = !settings.enhance
+                        applyPreviewFilter()
+                        showEffectsPanel("filters")
+                    }))
+                }
                 panel.addView(FilterStrip.create(this, frame, settings.filter) { f ->
                     settings.filter = f.id
                     applyPreviewFilter()
+                    // Primeiro filtro no video: religa a camera com o filtro OpenGL.
+                    if (mode == Mode.VIDEO && !videoFilterBound && videoFilterWanted() && recording == null) bindCamera()
                     showEffectsPanel("filters")
                 })
                 if (settings.filter != "original") {
@@ -2113,7 +2148,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
     }
 
     private fun needsProcessing(): Boolean =
-        computationalNight() || computationalHdr() ||
+        computationalNight() || computationalHdr() || enhanceApplies() ||
             (filterApplies() && settings.filter != "original") ||
             (beautyApplies() && settings.beautyActive) ||
             (mode == Mode.PORTRAIT && nativeExtension == null) ||
@@ -2295,7 +2330,12 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
             settings.beautyFace, settings.beautyTeeth, settings.beautyContour,
         ) else null
         val food = mode == Mode.FOOD
-        val matrix = filterMatrix()
+        // Na foto o "Aprimorar" e o completo (niveis, cor, nitidez); o visor so mostra uma previa.
+        val enhance = enhanceApplies()
+        val photoMatrix = ColorMatrix().apply {
+            if (filterApplies()) postConcat(Filters.byId(settings.filter).matrix(settings.filterIntensity / 100f))
+            if (food) postConcat(foodMatrix())
+        }
         val watermark = watermarkLines()
         val quality = settings.jpegQuality
         val folder = settings.photoTarget
@@ -2323,7 +2363,8 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
                     bitmap = ImageEffects.sharpen(bitmap, 0.5f * t)
                     bitmap = ImageEffects.radialFocus(bitmap, 0.5f, 0.5f, FOOD_RADIUS, min(bitmap.width, bitmap.height) * 0.03f * (0.3f + t))
                 }
-                bitmap = ImageEffects.applyMatrix(bitmap, matrix)
+                if (enhance) bitmap = ImageEffects.autoEnhance(bitmap)
+                bitmap = ImageEffects.applyMatrix(bitmap, photoMatrix)
                 bitmap = ImageEffects.watermark(bitmap, watermark)
                 MediaSaver.saveBitmap(this, bitmap, quality, folder, exif, place)
             } catch (error: OutOfMemoryError) {

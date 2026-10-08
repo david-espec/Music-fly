@@ -44,8 +44,30 @@ object FilterStrip {
             setPadding(dp(4), dp(2), dp(4), dp(2))
         }
         var selectedTile: LinearLayout? = null
+        var groupRow: LinearLayout? = null
+        var currentCategory = ""
 
         Filters.all.forEach { filter ->
+            // Cada categoria vira um bloco com o nome em cima das miniaturas.
+            if (filter.category != currentCategory) {
+                currentCategory = filter.category
+                val group = LinearLayout(context).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(0, 0, dp(10), 0)
+                }
+                group.addView(TextView(context).apply {
+                    text = filter.category.uppercase()
+                    textSize = 10f
+                    letterSpacing = 0.08f
+                    setTextColor(0x99FFFFFF.toInt())
+                    typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                    setPadding(dp(2), 0, 0, dp(4))
+                })
+                val tiles = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
+                group.addView(tiles)
+                row.addView(group)
+                groupRow = tiles
+            }
             val selected = filter.id == selectedId
             val tile = LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
@@ -85,7 +107,7 @@ object FilterStrip {
             }
             tile.addView(image)
             tile.addView(label)
-            row.addView(tile)
+            groupRow?.addView(tile)
             if (selected) selectedTile = tile
         }
 
@@ -97,7 +119,12 @@ object FilterStrip {
             }
             // Deixa o filtro escolhido a vista, centralizado se possivel.
             post {
-                selectedTile?.let { tile -> scrollTo((tile.left - (width - tile.width) / 2).coerceAtLeast(0), 0) }
+                selectedTile?.let { tile ->
+                    // Posicao da miniatura dentro da faixa inteira (tile esta dentro do grupo).
+                    val group = tile.parent?.parent as? android.view.View
+                    val left = tile.left + (group?.left ?: 0)
+                    scrollTo((left - (width - tile.width) / 2).coerceAtLeast(0), 0)
+                }
             }
         }
     }
