@@ -126,7 +126,7 @@ class SettingsActivity : AppCompatActivity() {
                 }
             }
             divider()
-            infoRow("Formato das fotos", "JPEG com dados EXIF. A resolução é escolhida na tela da câmera (toque no \"12M\").")
+            infoRow("Formato das fotos", "JPEG com dados EXIF e processamento de alta qualidade do sensor (redução de ruído, nitidez). A resolução é escolhida na tela da câmera (toque no \"12M\").")
         }
 
         section("Selfies")
@@ -229,12 +229,23 @@ class SettingsActivity : AppCompatActivity() {
 
         section("Armazenamento")
         card {
-            valueRow("Pasta das fotos", "Imagens/${settings.photoFolder}") {
-                editText("Pasta das fotos", settings.photoFolder) { settings.photoFolder = it; build() }
+            switchRow(
+                "Salvar junto com as fotos do celular",
+                "Fotos e vídeos vão para DCIM/Camera e aparecem no álbum Câmera da Galeria.",
+                settings.saveToCameraRoll,
+            ) {
+                settings.saveToCameraRoll = it
+                build()
             }
-            divider()
-            valueRow("Pasta dos vídeos", "Filmes/${settings.videoFolder}") {
-                editText("Pasta dos vídeos", settings.videoFolder) { settings.videoFolder = it; build() }
+            if (!settings.saveToCameraRoll) {
+                divider()
+                valueRow("Pasta das fotos", "Imagens/${settings.photoFolder}") {
+                    editText("Pasta das fotos", settings.photoFolder) { settings.photoFolder = it; build() }
+                }
+                divider()
+                valueRow("Pasta dos vídeos", "Filmes/${settings.videoFolder}") {
+                    editText("Pasta dos vídeos", settings.videoFolder) { settings.videoFolder = it; build() }
+                }
             }
         }
 

@@ -112,6 +112,23 @@ class CameraCapabilities(val info: CameraInfo) {
         return (normal + high).distinct().sortedByDescending { it.width.toLong() * it.height }
     }
 
+    /**
+     * Tamanhos de "alta resolucao" (ex.: 50 MP sem agrupar pixels). Sao mais
+     * lentos e, com pouca luz, mais ruidosos que o tamanho normal maximo.
+     */
+    fun highResSizes(): Set<Size> {
+        val map = get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP) ?: return emptySet()
+        val normal = map.getOutputSizes(ImageFormat.JPEG)?.toSet() ?: emptySet()
+        return (map.getHighResolutionOutputSizes(ImageFormat.JPEG)?.toSet() ?: emptySet()) - normal
+    }
+
+    // Modos de processamento de alta qualidade que o sensor oferece.
+    val noiseReductionModes: IntArray = get(CameraCharacteristics.NOISE_REDUCTION_AVAILABLE_NOISE_REDUCTION_MODES) ?: IntArray(0)
+    val edgeModes: IntArray = get(CameraCharacteristics.EDGE_AVAILABLE_EDGE_MODES) ?: IntArray(0)
+    val aberrationModes: IntArray = get(CameraCharacteristics.COLOR_CORRECTION_AVAILABLE_ABERRATION_MODES) ?: IntArray(0)
+    val hotPixelModes: IntArray = get(CameraCharacteristics.HOT_PIXEL_AVAILABLE_HOT_PIXEL_MODES) ?: IntArray(0)
+    val tonemapModes: IntArray = get(CameraCharacteristics.TONEMAP_AVAILABLE_TONE_MAP_MODES) ?: IntArray(0)
+
     /** Tamanhos no formato 4:3 ou 16:9, os unicos que o CameraX usa como origem. */
     fun jpegSizes(fourByThree: Boolean): List<Size> {
         val target = if (fourByThree) 4f / 3f else 16f / 9f

@@ -76,6 +76,12 @@ class CameraSettings(context: Context) {
     // --- Armazenamento -------------------------------------------------------------
     var photoFolder by string("photoFolder", "Foto")
     var videoFolder by string("videoFolder", "Foto")
+    /** Salvar junto com as fotos do celular (DCIM/Camera), no album Camera da Galeria. */
+    var saveToCameraRoll by boolean("cameraRoll", true)
+
+    /** Destinos usados pelo MediaSaver. */
+    val photoTarget get() = if (saveToCameraRoll) MediaSaver.CAMERA_ROLL else photoFolder
+    val videoTarget get() = if (saveToCameraRoll) MediaSaver.CAMERA_ROLL else videoFolder
 
     // --- Configuracoes a manter ------------------------------------------------------
     var keepMode by boolean("keepMode", false)

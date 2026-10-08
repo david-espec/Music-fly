@@ -19,6 +19,7 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.hardware.Sensor
+import android.hardware.camera2.CaptureRequest
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
@@ -656,6 +657,10 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         modeMore.setOnClickListener { showMoreModes() }
 
         thumbnail.setOnClickListener { openLastMedia() }
+        thumbnail.setOnLongClickListener {
+            openInAppViewer()
+            true
+        }
 
         pauseButton.setOnClickListener {
             val rec = recording ?: return@setOnClickListener
@@ -1041,7 +1046,13 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
                 analysis = buildAnalysis(Size(1280, 960)).also { useCases += it }
             }
             else -> {
-                imageCapture = buildImageCapture(source, ratioStrategy, level).also { useCases += it }
+                val info = try {
+                    provider.getCameraInfo(base)
+                } catch (error: Exception) {
+                    null
+                }
+                imageCapture = buildImageCapture(source, ratioStrategy, level, info?.let { CameraCapabilities(it) })
+                    .also { useCases += it }
                 if (level <= 1 && nativeExtension == null && wantsAnalysis()) {
                     analysis = buildAnalysis(Size(640, 480)).also { useCases += it }
                 }
@@ -1076,7 +1087,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         }
     }
 
-    private fun buildImageCapture(source: Int, ratio: AspectRatioStrategy, level: Int): ImageCapture {
+    private fun buildImageCapture(source: Int, ratio: AspectRatioStrategy, level: Int, c: CameraCapabilities?): ImageCapture {
         val resolution = ResolutionSelector.Builder().setAspectRatioStrategy(ratio)
         val fourByThree = source == AspectRatio.RATIO_4_3
         val chosen = settings.photoSize(fourByThree)
@@ -1087,9 +1098,9 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
                 resolution.setResolutionStrategy(ResolutionStrategy(target, ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER))
             }
             level >= 1 || nativeExtension != null -> resolution.setResolutionStrategy(ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY)
-            chosen == "max" -> resolution
-                .setResolutionStrategy(ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY)
-                .setAllowedResolutionMode(ResolutionSelector.PREFER_HIGHER_RESOLUTION_OVER_CAPTURE_RATE)
+            // Recomendada: o maior tamanho normal do sensor (pixels agrupados),
+            // que tem menos ruido e mais alcance dinamico que o modo de 50 MP.
+            chosen == "max" -> resolution.setResolutionStrategy(ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY)
             else -> {
                 val parts = chosen.split("x").mapNotNull { it.toIntOrNull() }
                 val size = if (parts.size == 2) Size(parts[0], parts[1]) else Size(4000, 3000)
@@ -1098,12 +1109,37 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
                     .setAllowedResolutionMode(ResolutionSelector.PREFER_HIGHER_RESOLUTION_OVER_CAPTURE_RATE)
             }
         }
-        return ImageCapture.Builder()
+        val builder = ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
             .setJpegQuality(settings.jpegQuality.coerceIn(50, 100))
             .setFlashMode(if (usesScreenFlash()) ImageCapture.FLASH_MODE_OFF else flashMode)
             .setResolutionSelector(resolution.build())
-            .build()
+        if (c != null && nativeExtension == null) applyHighQualityProcessing(builder, c)
+        return builder.build()
+    }
+
+    /**
+     * Pede ao processador de imagem do celular o processamento mais caprichado
+     * na foto (reducao de ruido, nitidez, aberracao cromatica, pixels quentes e
+     * curva de tons em alta qualidade). So os modos que o sensor declara.
+     */
+    private fun applyHighQualityProcessing(builder: ImageCapture.Builder, c: CameraCapabilities) {
+        val ext = Camera2Interop.Extender(builder)
+        if (android.hardware.camera2.CameraMetadata.NOISE_REDUCTION_MODE_HIGH_QUALITY in c.noiseReductionModes) {
+            ext.setCaptureRequestOption(CaptureRequest.NOISE_REDUCTION_MODE, android.hardware.camera2.CameraMetadata.NOISE_REDUCTION_MODE_HIGH_QUALITY)
+        }
+        if (android.hardware.camera2.CameraMetadata.EDGE_MODE_HIGH_QUALITY in c.edgeModes) {
+            ext.setCaptureRequestOption(CaptureRequest.EDGE_MODE, android.hardware.camera2.CameraMetadata.EDGE_MODE_HIGH_QUALITY)
+        }
+        if (android.hardware.camera2.CameraMetadata.COLOR_CORRECTION_ABERRATION_MODE_HIGH_QUALITY in c.aberrationModes) {
+            ext.setCaptureRequestOption(CaptureRequest.COLOR_CORRECTION_ABERRATION_MODE, android.hardware.camera2.CameraMetadata.COLOR_CORRECTION_ABERRATION_MODE_HIGH_QUALITY)
+        }
+        if (android.hardware.camera2.CameraMetadata.HOT_PIXEL_MODE_HIGH_QUALITY in c.hotPixelModes) {
+            ext.setCaptureRequestOption(CaptureRequest.HOT_PIXEL_MODE, android.hardware.camera2.CameraMetadata.HOT_PIXEL_MODE_HIGH_QUALITY)
+        }
+        if (android.hardware.camera2.CameraMetadata.TONEMAP_MODE_HIGH_QUALITY in c.tonemapModes) {
+            ext.setCaptureRequestOption(CaptureRequest.TONEMAP_MODE, android.hardware.camera2.CameraMetadata.TONEMAP_MODE_HIGH_QUALITY)
+        }
     }
 
     private fun buildAnalysis(size: Size): ImageAnalysis =
@@ -1275,8 +1311,13 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         val fourByThree = aspect.source == AspectRatio.RATIO_4_3
         val sizes = c.jpegSizes(fourByThree)
         if (sizes.isEmpty()) return
-        val labels = listOf("Máxima (${CameraCapabilities.mp(sizes.first())} MP)") +
-            sizes.map { "${CameraCapabilities.mp(it)} MP — ${it.width}×${it.height}" }
+        val high = c.highResSizes()
+        val recommended = sizes.firstOrNull { it !in high } ?: sizes.first()
+        val labels = listOf("Recomendada (${CameraCapabilities.mp(recommended)} MP)") +
+            sizes.map {
+                "${CameraCapabilities.mp(it)} MP — ${it.width}×${it.height}" +
+                    if (it in high) " · alta resolução (mais lenta, mais ruído no escuro)" else ""
+            }
         val current = settings.photoSize(fourByThree)
         val checked = if (current == "max") 0 else sizes.indexOfFirst { "${it.width}x${it.height}" == current } + 1
         AlertDialog.Builder(this)
@@ -2059,7 +2100,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         val options = ImageCapture.OutputFileOptions.Builder(
             contentResolver,
             MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-            MediaSaver.photoValues(MediaSaver.timestamp("IMG"), settings.photoFolder),
+            MediaSaver.photoValues(MediaSaver.timestamp("IMG"), settings.photoTarget),
         ).setMetadata(metadata).build()
 
         feedback()
@@ -2187,7 +2228,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         val matrix = filterMatrix()
         val watermark = watermarkLines()
         val quality = settings.jpegQuality
-        val folder = settings.photoFolder
+        val folder = settings.photoTarget
         val place = if (settings.location) location.last else null
 
         io.execute {
@@ -2287,7 +2328,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         if (!hasSpace()) return
 
         val output = MediaStoreOutputOptions.Builder(contentResolver, MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
-            .setContentValues(MediaSaver.videoValues(MediaSaver.timestamp("VID"), settings.videoFolder))
+            .setContentValues(MediaSaver.videoValues(MediaSaver.timestamp("VID"), settings.videoTarget))
             .apply { if (settings.location) this@MainActivity.location.last?.let { setLocation(it) } }
             .build()
 
@@ -2418,7 +2459,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         setBusy(true)
         panoramaText.text = "Montando o panorama…"
         val quality = settings.jpegQuality
-        val folder = settings.photoFolder
+        val folder = settings.photoTarget
         val place = if (settings.location) location.last else null
         io.execute {
             val uri = try {
@@ -2459,13 +2500,13 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
 
     private fun saveScan(data: Intent?) {
         val result = GmsDocumentScanningResult.fromActivityResultIntent(data) ?: return
-        val folder = settings.photoFolder
+        val folder = settings.photoTarget
         io.execute {
             var saved = 0
             var last: Uri? = null
             try {
                 result.pages?.forEach { page ->
-                    val values = MediaSaver.photoValues(MediaSaver.timestamp("DOC"), "$folder/Documentos")
+                    val values = MediaSaver.photoValues(MediaSaver.timestamp("DOC"), "Documentos")
                     val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: return@forEach
                     contentResolver.openInputStream(page.imageUri)?.use { input ->
                         contentResolver.openOutputStream(uri)?.use { input.copyTo(it) }
@@ -2508,7 +2549,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
 
     private fun loadLastPhoto() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
-        val folder = settings.photoFolder
+        val folder = settings.photoTarget
         io.execute {
             val uri = try {
                 contentResolver.query(
@@ -2551,7 +2592,30 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         }
     }
 
+    /**
+     * Toque na miniatura: abre a foto direto na Galeria do celular. Sem foto
+     * ainda, abre a Galeria nas imagens. So se nao houver app de galeria cai
+     * no visualizador do proprio app.
+     */
     private fun openLastMedia() {
+        val uri = lastMedia
+        val intent = if (uri != null) {
+            Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, contentResolver.getType(uri) ?: "image/jpeg")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+        } else {
+            Intent(Intent.ACTION_VIEW).setDataAndType(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, "image/*")
+        }
+        try {
+            viewerLauncher.launch(intent)
+        } catch (error: Exception) {
+            openInAppViewer()
+        }
+    }
+
+    /** Toque longo na miniatura: visualizador do app, com editar e informacoes. */
+    private fun openInAppViewer() {
         val uri = lastMedia ?: run {
             toast("Nenhuma foto ainda.")
             return

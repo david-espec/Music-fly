@@ -32,12 +32,22 @@ object MediaSaver {
     fun timestamp(prefix: String): String =
         SimpleDateFormat("'${prefix}_'yyyyMMdd_HHmmss_SSS", Locale.US).format(Date())
 
-    fun photoPath(folder: String) = "${Environment.DIRECTORY_PICTURES}/${folder.ifBlank { "Foto" }}/"
-    fun videoPath(folder: String) = "${Environment.DIRECTORY_MOVIES}/${folder.ifBlank { "Foto" }}/"
+    /** Destino especial: a pasta da camera do celular (album "Camera" da Galeria). */
+    const val CAMERA_ROLL = "camera"
+
+    fun photoPath(folder: String) =
+        if (folder == CAMERA_ROLL) "${Environment.DIRECTORY_DCIM}/Camera/"
+        else "${Environment.DIRECTORY_PICTURES}/${folder.ifBlank { "Foto" }}/"
+
+    fun videoPath(folder: String) =
+        if (folder == CAMERA_ROLL) "${Environment.DIRECTORY_DCIM}/Camera/"
+        else "${Environment.DIRECTORY_MOVIES}/${folder.ifBlank { "Foto" }}/"
 
     fun photoValues(name: String, folder: String, mime: String = "image/jpeg") = ContentValues().apply {
         put(MediaStore.MediaColumns.DISPLAY_NAME, name)
         put(MediaStore.MediaColumns.MIME_TYPE, mime)
+        // Data da foto: a Galeria ordena por ela.
+        put(MediaStore.Images.ImageColumns.DATE_TAKEN, System.currentTimeMillis())
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             put(MediaStore.MediaColumns.RELATIVE_PATH, photoPath(folder))
         }
@@ -46,6 +56,7 @@ object MediaSaver {
     fun videoValues(name: String, folder: String) = ContentValues().apply {
         put(MediaStore.MediaColumns.DISPLAY_NAME, name)
         put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
+        put(MediaStore.Video.VideoColumns.DATE_TAKEN, System.currentTimeMillis())
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             put(MediaStore.MediaColumns.RELATIVE_PATH, videoPath(folder))
         }
@@ -175,8 +186,10 @@ object MediaSaver {
     fun loadBitmap(context: Context, uri: Uri, maxPixels: Long): Bitmap? {
         val resolver = context.contentResolver
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) } ?: return null
-        if (bounds.outWidth <= 0) return null
+        // Com inJustDecodeBounds o decode sempre devolve null: so o tamanho
+        // em [bounds] interessa aqui.
+        resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
         var sample = 1
         while (bounds.outWidth.toLong() / sample * (bounds.outHeight / sample) > maxPixels) sample *= 2
         val bitmap = resolver.openInputStream(uri)?.use {

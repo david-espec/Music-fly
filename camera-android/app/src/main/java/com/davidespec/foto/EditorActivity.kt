@@ -512,7 +512,7 @@ class EditorActivity : AppCompatActivity() {
             val saved = try {
                 val full = MediaSaver.loadBitmap(this, uri, MediaSaver.MAX_PROCESSED_PIXELS) ?: throw IllegalStateException()
                 val result = apply(full, snapshot)
-                MediaSaver.saveBitmap(this, result, settings.jpegQuality, settings.photoFolder, MediaSaver.readExif(this, uri), null, "EDIT")
+                MediaSaver.saveBitmap(this, result, settings.jpegQuality, settings.photoTarget, MediaSaver.readExif(this, uri), null, "EDIT")
             } catch (error: Throwable) {
                 null
             }

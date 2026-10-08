@@ -208,8 +208,8 @@ class ViewerActivity : AppCompatActivity() {
                 // Sem acesso: mostra so o item aberto.
             }
         }
-        query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, MediaSaver.photoPath(settings.photoFolder), false)
-        query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, MediaSaver.videoPath(settings.videoFolder), true)
+        query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, MediaSaver.photoPath(settings.photoTarget), false)
+        query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, MediaSaver.videoPath(settings.videoTarget), true)
         return result.sortedByDescending { it.date }
     }
 
