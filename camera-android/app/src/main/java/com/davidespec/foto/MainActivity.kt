@@ -612,20 +612,9 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
             toast(if (settings.microphone) "Microfone ligado" else "Microfone desligado: vídeo sem som")
         }
 
-        fpsButton.setOnClickListener {
-            val options = caps?.fixedFps().orEmpty()
-            if (options.size < 2 || recording != null) return@setOnClickListener
-            val next = options[(options.indexOf(settings.videoFps) + 1) % options.size]
-            settings.videoFps = next
-            toast("$next quadros por segundo")
-            bindCamera()
-        }
+        fpsButton.setOnClickListener { showFpsMenu() }
 
-        aspectButton.setOnClickListener {
-            aspect = Aspect.entries[(aspect.ordinal + 1) % Aspect.entries.size]
-            savePrefs()
-            applyLayout()
-        }
+        aspectButton.setOnClickListener { showAspectMenu() }
 
         resolutionButton.setOnClickListener {
             if (mode == Mode.VIDEO) chooseVideoQuality() else choosePhotoSize()
@@ -753,9 +742,20 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         tint(flashButton, flashMode != ImageCapture.FLASH_MODE_OFF)
     }
 
-    /** Menu suspenso do temporizador, logo abaixo do botao. */
-    private fun showTimerMenu() {
-        val options = listOf(0 to "Desligado", 3 to "3 segundos", 5 to "5 segundos", 10 to "10 segundos")
+    private class MenuOption(
+        val label: String,
+        val detail: String? = null,
+        val selected: Boolean = false,
+        val enabled: Boolean = true,
+        val onPick: () -> Unit,
+    )
+
+    /**
+     * Menu suspenso no estilo dos controles da camera: abre logo abaixo do
+     * botao (ou acima, para os botoes de baixo), marca a opcao atual em
+     * amarelo e fecha ao escolher ou ao tocar fora.
+     */
+    private fun showDropdown(anchor: View, title: String, options: List<MenuOption>, upward: Boolean = false, width: Int = 220) {
         val list = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, dp(6), 0, dp(6))
@@ -763,41 +763,114 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
                 setColor(0xF2202022.toInt())
                 cornerRadius = dp(18).toFloat()
             }
-            elevation = dp(8).toFloat()
         }
-        val popup = PopupWindow(list, dp(200), LinearLayout.LayoutParams.WRAP_CONTENT, true).apply {
+        val scroll = android.widget.ScrollView(this).apply {
+            addView(list)
+            isVerticalScrollBarEnabled = false
+        }
+        val popupWidth = dp(width)
+        val popup = PopupWindow(scroll, popupWidth, LinearLayout.LayoutParams.WRAP_CONTENT, true).apply {
             setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
             elevation = dp(8).toFloat()
             animationStyle = android.R.style.Animation_Dialog
         }
         list.addView(TextView(this).apply {
-            text = "Temporizador"
+            text = title
             setTextColor(0xFF9A9A9E.toInt())
             textSize = 13f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             setPadding(dp(20), dp(8), dp(20), dp(6))
         })
-        options.forEach { (seconds, label) ->
-            val selected = seconds == timerSeconds
-            list.addView(TextView(this).apply {
-                text = if (selected) "✓  $label" else "     $label"
-                setTextColor(if (selected) ACCENT else WHITE)
-                textSize = 16f
-                typeface = Typeface.create(Typeface.DEFAULT, if (selected) Typeface.BOLD else Typeface.NORMAL)
-                setPadding(dp(20), dp(12), dp(20), dp(12))
+        options.forEach { option ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(20), dp(10), dp(20), dp(10))
+                alpha = if (option.enabled) 1f else 0.45f
                 val attrs = obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
                 background = attrs.getDrawable(0)
                 attrs.recycle()
                 setOnClickListener {
-                    timerSeconds = seconds
-                    savePrefs()
-                    renderTimer()
                     popup.dismiss()
+                    option.onPick()
                 }
+            }
+            row.addView(TextView(this).apply {
+                text = if (option.selected) "✓  ${option.label}" else option.label
+                setTextColor(if (option.selected) ACCENT else WHITE)
+                textSize = 16f
+                typeface = Typeface.create(Typeface.DEFAULT, if (option.selected) Typeface.BOLD else Typeface.NORMAL)
             })
+            option.detail?.let { detail ->
+                row.addView(TextView(this).apply {
+                    text = detail
+                    setTextColor(0xFF9A9A9E.toInt())
+                    textSize = 12f
+                    setPadding(0, dp(2), 0, 0)
+                })
+            }
+            list.addView(row)
         }
-        // Centraliza o menu sob o botao.
-        popup.showAsDropDown(timerButton, (timerButton.width - dp(200)) / 2, dp(4))
+        // Nao passa de 60% da altura da tela; o resto rola.
+        val maxHeight = (resources.displayMetrics.heightPixels * 0.6f).toInt()
+        scroll.measure(
+            View.MeasureSpec.makeMeasureSpec(popupWidth, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+        )
+        val height = min(scroll.measuredHeight, maxHeight)
+        popup.height = height
+        val location = IntArray(2)
+        anchor.getLocationInWindow(location)
+        val x = (location[0] + anchor.width / 2 - popupWidth / 2)
+            .coerceIn(dp(8), resources.displayMetrics.widthPixels - popupWidth - dp(8))
+        val y = if (upward) location[1] - height - dp(8) else location[1] + anchor.height + dp(4)
+        popup.showAtLocation(root, Gravity.TOP or Gravity.START, x, y)
+    }
+
+    private fun showTimerMenu() {
+        val options = listOf(0 to "Desligado", 3 to "3 segundos", 5 to "5 segundos", 10 to "10 segundos")
+        showDropdown(timerButton, "Temporizador", options.map { (seconds, label) ->
+            MenuOption(label, selected = seconds == timerSeconds) {
+                timerSeconds = seconds
+                savePrefs()
+                renderTimer()
+            }
+        }, width = 200)
+    }
+
+    private fun showAspectMenu() {
+        val details = mapOf(
+            Aspect.R3_4 to "Padrão, usa o sensor inteiro",
+            Aspect.R9_16 to "Widescreen",
+            Aspect.R1_1 to "Quadrado",
+            Aspect.FULL to "Ocupa a tela toda",
+        )
+        showDropdown(aspectButton, "Proporção", Aspect.entries.map { a ->
+            MenuOption(a.label, details[a], selected = a == aspect) {
+                if (a != aspect) {
+                    aspect = a
+                    savePrefs()
+                    applyLayout()
+                }
+            }
+        })
+    }
+
+    private fun showFpsMenu() {
+        val options = caps?.fixedFps().orEmpty()
+        if (recording != null) return
+        if (options.isEmpty()) {
+            toast("Esta câmera não informa taxas de quadros fixas.")
+            return
+        }
+        val current = if (settings.videoFps in options) settings.videoFps else options.last()
+        showDropdown(fpsButton, "Quadros por segundo", options.map { fps ->
+            MenuOption("$fps fps", if (fps == 24) "Visual de cinema" else if (fps == 60) "Movimento mais suave" else null, selected = fps == current) {
+                if (fps != settings.videoFps) {
+                    settings.videoFps = fps
+                    bindCamera()
+                }
+            }
+        }, width = 200)
     }
 
     private fun renderTimer() {
@@ -906,15 +979,12 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
             Item("Noite", if (nightNative) "processamento do fabricante" else "várias fotos combinadas no aparelho", true) { setMode(Mode.NIGHT) },
             Item("Documentos", "detecta bordas, corrige perspectiva, exporta PDF", true) { startDocumentScan() },
         )
-        val labels = items.map { "${it.name} — ${it.detail}" }.toTypedArray()
-        AlertDialog.Builder(this)
-            .setTitle("Mais modos")
-            .setItems(labels) { _, which ->
-                val item = items[which]
+        val active = mapOf("Pro" to Mode.PRO, "Panorama" to Mode.PANORAMA, "Macro" to Mode.MACRO, "Comida" to Mode.FOOD, "Noite" to Mode.NIGHT)
+        showDropdown(modeMore, "Mais modos", items.map { item ->
+            MenuOption(item.name, item.detail, selected = active[item.name] == mode, enabled = item.enabled) {
                 if (item.enabled) item.action() else toast("${item.name}: ${item.detail}.")
             }
-            .setNegativeButton("Fechar", null)
-            .show()
+        }, upward = true, width = 280)
     }
 
     private fun backMainId(): String? = cameraProvider?.availableCameraInfos
@@ -1351,22 +1421,24 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         if (sizes.isEmpty()) return
         val high = c.highResSizes()
         val recommended = sizes.firstOrNull { it !in high } ?: sizes.first()
-        val labels = listOf("Recomendada (${CameraCapabilities.mp(recommended)} MP)") +
-            sizes.map {
-                "${CameraCapabilities.mp(it)} MP — ${it.width}×${it.height}" +
-                    if (it in high) " · alta resolução (mais lenta, mais ruído no escuro)" else ""
-            }
         val current = settings.photoSize(fourByThree)
-        val checked = if (current == "max") 0 else sizes.indexOfFirst { "${it.width}x${it.height}" == current } + 1
-        AlertDialog.Builder(this)
-            .setTitle("Resolução da foto (${if (fourByThree) "4:3" else "16:9"})")
-            .setSingleChoiceItems(labels.toTypedArray(), checked.coerceAtLeast(0)) { dialog, which ->
-                settings.setPhotoSize(fourByThree, if (which == 0) "max" else "${sizes[which - 1].width}x${sizes[which - 1].height}")
-                dialog.dismiss()
+        fun pick(value: String) {
+            if (value != settings.photoSize(fourByThree)) {
+                settings.setPhotoSize(fourByThree, value)
                 bindCamera()
             }
-            .setNegativeButton("Cancelar", null)
-            .show()
+        }
+        val options = listOf(
+            MenuOption("Recomendada · ${CameraCapabilities.mp(recommended)}M", "Melhor equilíbrio de nitidez e ruído", selected = current == "max") { pick("max") },
+        ) + sizes.map { size ->
+            val key = "${size.width}x${size.height}"
+            MenuOption(
+                "${CameraCapabilities.mp(size)}M",
+                "${size.width}×${size.height}" + if (size in high) " · alta resolução, mais lenta" else "",
+                selected = current == key,
+            ) { pick(key) }
+        }
+        showDropdown(resolutionButton, "Qualidade da foto (${if (fourByThree) "4:3" else "16:9"})", options)
     }
 
     private fun chooseVideoQuality() {
@@ -1377,16 +1449,16 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
             toast("Não foi possível ler as qualidades de vídeo desta câmera.")
             return
         }
-        val checked = supported.indexOfFirst { qualityName(it) == settings.videoQuality }
-        AlertDialog.Builder(this)
-            .setTitle("Qualidade do vídeo")
-            .setSingleChoiceItems(supported.map { qualityLabel(it) }.toTypedArray(), checked) { dialog, which ->
-                settings.videoQuality = qualityName(supported[which])
-                dialog.dismiss()
-                bindCamera()
+        val current = supported.firstOrNull { qualityName(it) == settings.videoQuality }
+            ?: supported.firstOrNull { it == Quality.FHD } ?: supported.first()
+        showDropdown(resolutionButton, "Qualidade do vídeo", supported.map { q ->
+            MenuOption(qualityName(q), qualityLabel(q), selected = q == current) {
+                if (q != current) {
+                    settings.videoQuality = qualityName(q)
+                    bindCamera()
+                }
             }
-            .setNegativeButton("Cancelar", null)
-            .show()
+        })
     }
 
     // --- Exposicao ------------------------------------------------------------------------
