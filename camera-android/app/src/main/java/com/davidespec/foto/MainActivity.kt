@@ -611,7 +611,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
                 panel.visibility = View.GONE
                 renderEffectsButton()
             } else {
-                showEffectsPanel(defaultTab())
+                showEffectsPanel("filters")
             }
         }
 
@@ -1937,41 +1937,36 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
     private fun showEffectsPanel(tab: String) {
         panelTab = tab
         panel.removeAllViews()
+        // Filtros: so a faixa de miniaturas, sem fundo nem outros controles.
+        if (tab == "filters") {
+            panel.background = null
+            panel.addView(FilterStrip.create(this, null, settings.filter) { f ->
+                settings.filter = f.id
+                settings.filterIntensity = 100
+                applyPreviewFilter()
+                // Primeiro filtro no video: religa a camera com o filtro OpenGL.
+                if (mode == Mode.VIDEO && !videoFilterBound && videoFilterWanted() && recording == null) bindCamera()
+                showEffectsPanel("filters")
+            })
+            panel.visibility = View.VISIBLE
+            renderEffectsButton()
+            return
+        }
+        panel.setBackgroundResource(R.drawable.panel_bg)
         val tabs = buildList {
             add("filters" to "FILTROS")
-            if (beautyApplies()) add("face" to "ROSTO")
             if (mode == Mode.PORTRAIT && nativeExtension == null) add("blur" to "DESFOQUE")
             if (mode == Mode.FOOD) add("food" to "COMIDA")
         }
-        val current = if (tabs.any { it.first == tab }) tab else "filters"
+        if (tabs.none { it.first == tab }) {
+            showEffectsPanel("filters")
+            return
+        }
+        val current = tab
         panelTab = current
         panel.addView(row(*tabs.map { (id, name) -> chip(name, id == current) { showEffectsPanel(id) } }.toTypedArray()))
 
         when (current) {
-            "filters" -> {
-                // Miniaturas com a imagem atual do visor (sem filtro) e cada filtro aplicado.
-                if (mode != Mode.VIDEO) {
-                    panel.addView(row(chip(if (settings.enhance) "✨ Aprimorar: ligado" else "✨ Aprimorar", settings.enhance) {
-                        settings.enhance = !settings.enhance
-                        applyPreviewFilter()
-                        showEffectsPanel("filters")
-                    }))
-                }
-                // Miniaturas com uma imagem fixa de exemplo: nao mudam conforme a camera se mexe.
-                panel.addView(FilterStrip.create(this, null, settings.filter) { f ->
-                    settings.filter = f.id
-                    applyPreviewFilter()
-                    // Primeiro filtro no video: religa a camera com o filtro OpenGL.
-                    if (mode == Mode.VIDEO && !videoFilterBound && videoFilterWanted() && recording == null) bindCamera()
-                    showEffectsPanel("filters")
-                })
-                if (settings.filter != "original") {
-                    panel.addView(slider("Intensidade", settings.filterIntensity, 100, { "$it%" }) {
-                        settings.filterIntensity = it
-                        applyPreviewFilter()
-                    })
-                }
-            }
             "face" -> {
                 panel.addView(slider("Pele lisa", settings.beautySmooth, 100, { "$it" }) { settings.beautySmooth = it; renderEffectsButton() })
                 panel.addView(slider("Brilho pele", settings.beautyBright, 100, { "$it" }) { settings.beautyBright = it; renderEffectsButton() })
@@ -2015,6 +2010,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         }
         panel.removeAllViews()
         panelTab = "pro"
+        panel.setBackgroundResource(R.drawable.panel_bg)
         if (tabs.isEmpty()) {
             panel.addView(note("Esta câmera não oferece controles manuais."))
             panel.visibility = View.VISIBLE

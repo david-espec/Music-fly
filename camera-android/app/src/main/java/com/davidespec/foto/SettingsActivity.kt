@@ -129,6 +129,34 @@ class SettingsActivity : AppCompatActivity() {
             infoRow("Formato das fotos", "JPEG com dados EXIF e processamento de alta qualidade do sensor (redução de ruído, nitidez). A resolução é escolhida na tela da câmera (toque no \"12M\").")
         }
 
+        section("Efeitos nas fotos")
+        card {
+            switchRow(
+                "Aprimorar automaticamente",
+                "Ajusta a luz, dá mais vida às cores e um toque de nitidez em cada foto.",
+                settings.enhance,
+            ) { settings.enhance = it }
+            val levels = listOf(0, 25, 50, 75, 100)
+            fun levelName(v: Int) = if (v == 0) "Desligado" else "$v%"
+            listOf(
+                Triple("Pele lisa", { settings.beautySmooth }, { v: Int -> settings.beautySmooth = v }),
+                Triple("Brilho da pele", { settings.beautyBright }, { v: Int -> settings.beautyBright = v }),
+                Triple("Olhos maiores", { settings.beautyEyes }, { v: Int -> settings.beautyEyes = v }),
+                Triple("Rosto mais fino", { settings.beautyFace }, { v: Int -> settings.beautyFace = v }),
+                Triple("Dentes mais brancos", { settings.beautyTeeth }, { v: Int -> settings.beautyTeeth = v }),
+                Triple("Contorno", { settings.beautyContour }, { v: Int -> settings.beautyContour = v }),
+            ).forEach { (title, get, set) ->
+                divider()
+                valueRow("Beleza: $title", levelName(get())) {
+                    val current = levels.indexOfFirst { it >= get() }.coerceAtLeast(0)
+                    choose(title, levels.map { levelName(it) }, current) {
+                        set(levels[it])
+                        build()
+                    }
+                }
+            }
+        }
+
         section("Selfies")
         card {
             switchRow("Salvar selfies como visualizadas", "Salva as selfies conforme aparecem na pré-visualização, sem invertê-las.", settings.mirrorSelfies) {

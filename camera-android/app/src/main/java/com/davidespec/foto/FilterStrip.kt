@@ -2,13 +2,7 @@ package com.davidespec.foto
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.Canvas
 import android.graphics.ColorMatrixColorFilter
-import android.graphics.LinearGradient
-import android.graphics.Paint
-import android.graphics.Path
-import android.graphics.RadialGradient
-import android.graphics.Shader
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
@@ -38,7 +32,7 @@ object FilterStrip {
         val density = context.resources.displayMetrics.density
         fun dp(v: Int) = (v * density).toInt()
 
-        val thumb = if (source != null) squareThumb(source, dp(THUMB_DP) * 2) else scene(dp(THUMB_DP) * 2)
+        val thumb = if (source != null) squareThumb(source, dp(THUMB_DP) * 2) else sample(context)
         val row = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(4), dp(2), dp(4), dp(2))
@@ -57,6 +51,7 @@ object FilterStrip {
                 }
                 group.addView(TextView(context).apply {
                     text = filter.category.uppercase()
+                    setShadowLayer(4f, 0f, 1f, 0xCC000000.toInt())
                     textSize = 10f
                     letterSpacing = 0.08f
                     setTextColor(0x99FFFFFF.toInt())
@@ -97,6 +92,7 @@ object FilterStrip {
                 layoutParams = LinearLayout.LayoutParams(dp(THUMB_DP), dp(THUMB_DP))
             }
             val label = TextView(context).apply {
+                setShadowLayer(4f, 0f, 1f, 0xCC000000.toInt())
                 text = filter.name
                 textSize = 11f
                 maxLines = 1
@@ -129,11 +125,16 @@ object FilterStrip {
         }
     }
 
-    private var cachedScene: Bitmap? = null
+    private var cachedSample: Bitmap? = null
 
-    /** A cena fixa de exemplo, desenhada uma vez so. */
-    private fun scene(size: Int): Bitmap =
-        cachedScene?.takeIf { it.width == size } ?: sampleScene(size).also { cachedScene = it }
+    /**
+     * Foto fixa de exemplo (retrato do conjunto de imagens de teste da Kodak,
+     * liberado para uso livre): pele, cabelo, vermelho forte e fundo claro
+     * mostram bem a diferenca entre os filtros.
+     */
+    private fun sample(context: Context): Bitmap =
+        cachedSample ?: android.graphics.BitmapFactory.decodeResource(context.resources, R.drawable.filter_sample)
+            .also { cachedSample = it }
 
     /** Recorte quadrado central, reduzido para a miniatura. */
     fun squareThumb(source: Bitmap, size: Int): Bitmap {
@@ -142,53 +143,5 @@ object FilterStrip {
         val y = (source.height - side) / 2
         val square = Bitmap.createBitmap(source, x, y, side, side)
         return if (side == size) square else Bitmap.createScaledBitmap(square, size, size, true)
-    }
-
-    /**
-     * Cena de exemplo para quando ainda nao ha imagem da camera: ceu de fim de
-     * tarde, sol, morros verdes e agua, com bastante variedade de cor para os
-     * filtros mostrarem a diferenca.
-     */
-    fun sampleScene(size: Int = 256): Bitmap {
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        val s = size.toFloat()
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-
-        paint.shader = LinearGradient(0f, 0f, 0f, s * 0.62f, intArrayOf(0xFF2E6FD8.toInt(), 0xFF8EC3F0.toInt(), 0xFFFFC98A.toInt()), floatArrayOf(0f, 0.6f, 1f), Shader.TileMode.CLAMP)
-        canvas.drawRect(0f, 0f, s, s * 0.62f, paint)
-
-        paint.shader = RadialGradient(s * 0.68f, s * 0.42f, s * 0.16f, intArrayOf(0xFFFFF4C2.toInt(), 0xFFFFB347.toInt()), null, Shader.TileMode.CLAMP)
-        canvas.drawCircle(s * 0.68f, s * 0.42f, s * 0.12f, paint)
-
-        paint.shader = null
-        paint.color = 0xFF3F8F4A.toInt()
-        canvas.drawPath(Path().apply {
-            moveTo(0f, s * 0.62f)
-            quadTo(s * 0.25f, s * 0.42f, s * 0.55f, s * 0.6f)
-            quadTo(s * 0.8f, s * 0.48f, s, s * 0.58f)
-            lineTo(s, s)
-            lineTo(0f, s)
-            close()
-        }, paint)
-
-        paint.color = 0xFF27693A.toInt()
-        canvas.drawPath(Path().apply {
-            moveTo(0f, s * 0.72f)
-            quadTo(s * 0.4f, s * 0.6f, s, s * 0.74f)
-            lineTo(s, s)
-            lineTo(0f, s)
-            close()
-        }, paint)
-
-        paint.shader = LinearGradient(0f, s * 0.82f, 0f, s, 0xFF4A90C8.toInt(), 0xFF1F4E7A.toInt(), Shader.TileMode.CLAMP)
-        canvas.drawRect(0f, s * 0.82f, s, s, paint)
-
-        paint.shader = null
-        paint.color = 0xFFE84B3C.toInt()
-        canvas.drawCircle(s * 0.22f, s * 0.7f, s * 0.05f, paint)
-        paint.color = 0xFFFFD23F.toInt()
-        canvas.drawCircle(s * 0.32f, s * 0.73f, s * 0.04f, paint)
-        return bitmap
     }
 }
