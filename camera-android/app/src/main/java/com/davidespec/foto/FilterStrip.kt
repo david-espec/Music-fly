@@ -128,8 +128,8 @@ object FilterStrip {
     private var cachedSample: Bitmap? = null
 
     /**
-     * Foto fixa de exemplo (retrato do conjunto de imagens de teste da Kodak,
-     * liberado para uso livre): pele, cabelo, vermelho forte e fundo claro
+     * Foto fixa de exemplo (paisagem de montanha e rio do conjunto de imagens
+     * de teste da Kodak, liberado para uso livre): ceu, neve, verde e agua
      * mostram bem a diferenca entre os filtros.
      */
     private fun sample(context: Context): Bitmap =
