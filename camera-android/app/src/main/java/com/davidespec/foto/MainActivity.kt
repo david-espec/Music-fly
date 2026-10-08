@@ -1924,13 +1924,17 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
 
         when (current) {
             "filters" -> {
-                panel.addView(row(*Filters.all.map { f ->
-                    chip(f.name, f.id == settings.filter) {
-                        settings.filter = f.id
-                        applyPreviewFilter()
-                        showEffectsPanel("filters")
-                    }
-                }.toTypedArray()))
+                // Miniaturas com a imagem atual do visor (sem filtro) e cada filtro aplicado.
+                val frame = try {
+                    preview.bitmap
+                } catch (error: Exception) {
+                    null
+                }
+                panel.addView(FilterStrip.create(this, frame, settings.filter) { f ->
+                    settings.filter = f.id
+                    applyPreviewFilter()
+                    showEffectsPanel("filters")
+                })
                 if (settings.filter != "original") {
                     panel.addView(slider("Intensidade", settings.filterIntensity, 100, { "$it%" }) {
                         settings.filterIntensity = it

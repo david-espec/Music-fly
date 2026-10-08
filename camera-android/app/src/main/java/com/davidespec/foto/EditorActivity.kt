@@ -287,12 +287,10 @@ class EditorActivity : AppCompatActivity() {
                 })
             }
             "filters" -> {
-                toolArea.addView(chipRow(Filters.all.map { f ->
-                    chip(f.name, f.id == state.filter) {
-                        commit(state.copy(filter = f.id))
-                        showTool()
-                    }
-                }))
+                toolArea.addView(FilterStrip.create(this, base, state.filter) { f ->
+                    commit(state.copy(filter = f.id))
+                    showTool()
+                })
                 if (state.filter != "original") {
                     toolArea.addView(slider(0, 100, state.filterIntensity) { value, done ->
                         val next = state.copy(filterIntensity = value)

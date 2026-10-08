@@ -1,0 +1,161 @@
+package com.davidespec.foto
+
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.ColorMatrixColorFilter
+import android.graphics.LinearGradient
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.RadialGradient
+import android.graphics.Shader
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.view.Gravity
+import android.view.ViewGroup
+import android.widget.HorizontalScrollView
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
+import kotlin.math.min
+
+/**
+ * Faixa de filtros com miniaturas: cada quadradinho mostra a imagem real
+ * (o visor da camera ou a foto em edicao) ja com o filtro aplicado, como nos
+ * apps de camera dos celulares. A cor de cada miniatura vem da mesma
+ * ColorMatrix usada na foto final.
+ */
+object FilterStrip {
+
+    private const val THUMB_DP = 64
+
+    fun create(
+        context: Context,
+        source: Bitmap?,
+        selectedId: String,
+        onPick: (Filters.Filter) -> Unit,
+    ): HorizontalScrollView {
+        val density = context.resources.displayMetrics.density
+        fun dp(v: Int) = (v * density).toInt()
+
+        val thumb = squareThumb(source ?: sampleScene(), dp(THUMB_DP) * 2)
+        val row = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(4), dp(2), dp(4), dp(2))
+        }
+        var selectedTile: LinearLayout? = null
+
+        Filters.all.forEach { filter ->
+            val selected = filter.id == selectedId
+            val tile = LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(dp(THUMB_DP + 10), ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                    marginEnd = dp(4)
+                }
+                isClickable = true
+                contentDescription = "Filtro ${filter.name}"
+                setOnClickListener { onPick(filter) }
+            }
+            val image = ImageView(context).apply {
+                setImageBitmap(thumb)
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                colorFilter = ColorMatrixColorFilter(filter.matrix(1f))
+                // Cantos arredondados de verdade (recorta a imagem).
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(14).toFloat()
+                    setColor(0xFF222222.toInt())
+                }
+                clipToOutline = true
+                // Moldura amarela no filtro escolhido.
+                foreground = GradientDrawable().apply {
+                    cornerRadius = dp(14).toFloat()
+                    setStroke(if (selected) dp(3) else dp(1), if (selected) 0xFFFFD60A.toInt() else 0x33FFFFFF)
+                }
+                layoutParams = LinearLayout.LayoutParams(dp(THUMB_DP), dp(THUMB_DP))
+            }
+            val label = TextView(context).apply {
+                text = filter.name
+                textSize = 11f
+                maxLines = 1
+                gravity = Gravity.CENTER
+                setTextColor(if (selected) 0xFFFFD60A.toInt() else 0xE6FFFFFF.toInt())
+                typeface = Typeface.create(Typeface.DEFAULT, if (selected) Typeface.BOLD else Typeface.NORMAL)
+                setPadding(0, dp(5), 0, 0)
+            }
+            tile.addView(image)
+            tile.addView(label)
+            row.addView(tile)
+            if (selected) selectedTile = tile
+        }
+
+        return HorizontalScrollView(context).apply {
+            isHorizontalScrollBarEnabled = false
+            addView(row)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = dp(6)
+            }
+            // Deixa o filtro escolhido a vista, centralizado se possivel.
+            post {
+                selectedTile?.let { tile -> scrollTo((tile.left - (width - tile.width) / 2).coerceAtLeast(0), 0) }
+            }
+        }
+    }
+
+    /** Recorte quadrado central, reduzido para a miniatura. */
+    fun squareThumb(source: Bitmap, size: Int): Bitmap {
+        val side = min(source.width, source.height)
+        val x = (source.width - side) / 2
+        val y = (source.height - side) / 2
+        val square = Bitmap.createBitmap(source, x, y, side, side)
+        return if (side == size) square else Bitmap.createScaledBitmap(square, size, size, true)
+    }
+
+    /**
+     * Cena de exemplo para quando ainda nao ha imagem da camera: ceu de fim de
+     * tarde, sol, morros verdes e agua, com bastante variedade de cor para os
+     * filtros mostrarem a diferenca.
+     */
+    fun sampleScene(size: Int = 256): Bitmap {
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val s = size.toFloat()
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+        paint.shader = LinearGradient(0f, 0f, 0f, s * 0.62f, intArrayOf(0xFF2E6FD8.toInt(), 0xFF8EC3F0.toInt(), 0xFFFFC98A.toInt()), floatArrayOf(0f, 0.6f, 1f), Shader.TileMode.CLAMP)
+        canvas.drawRect(0f, 0f, s, s * 0.62f, paint)
+
+        paint.shader = RadialGradient(s * 0.68f, s * 0.42f, s * 0.16f, intArrayOf(0xFFFFF4C2.toInt(), 0xFFFFB347.toInt()), null, Shader.TileMode.CLAMP)
+        canvas.drawCircle(s * 0.68f, s * 0.42f, s * 0.12f, paint)
+
+        paint.shader = null
+        paint.color = 0xFF3F8F4A.toInt()
+        canvas.drawPath(Path().apply {
+            moveTo(0f, s * 0.62f)
+            quadTo(s * 0.25f, s * 0.42f, s * 0.55f, s * 0.6f)
+            quadTo(s * 0.8f, s * 0.48f, s, s * 0.58f)
+            lineTo(s, s)
+            lineTo(0f, s)
+            close()
+        }, paint)
+
+        paint.color = 0xFF27693A.toInt()
+        canvas.drawPath(Path().apply {
+            moveTo(0f, s * 0.72f)
+            quadTo(s * 0.4f, s * 0.6f, s, s * 0.74f)
+            lineTo(s, s)
+            lineTo(0f, s)
+            close()
+        }, paint)
+
+        paint.shader = LinearGradient(0f, s * 0.82f, 0f, s, 0xFF4A90C8.toInt(), 0xFF1F4E7A.toInt(), Shader.TileMode.CLAMP)
+        canvas.drawRect(0f, s * 0.82f, s, s, paint)
+
+        paint.shader = null
+        paint.color = 0xFFE84B3C.toInt()
+        canvas.drawCircle(s * 0.22f, s * 0.7f, s * 0.05f, paint)
+        paint.color = 0xFFFFD23F.toInt()
+        canvas.drawCircle(s * 0.32f, s * 0.73f, s * 0.04f, paint)
+        return bitmap
+    }
+}
