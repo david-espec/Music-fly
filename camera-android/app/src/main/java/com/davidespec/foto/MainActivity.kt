@@ -51,6 +51,7 @@ import android.widget.HorizontalScrollView
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.PopupWindow
 import android.widget.ProgressBar
 import android.widget.SeekBar
 import android.widget.TextView
@@ -597,17 +598,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
             bindCamera()
         }
 
-        timerButton.setOnClickListener {
-            timerSeconds = when (timerSeconds) {
-                0 -> 3
-                3 -> 5
-                5 -> 10
-                else -> 0
-            }
-            savePrefs()
-            renderTimer()
-            toast(if (timerSeconds == 0) "Temporizador desligado" else "Temporizador: $timerSeconds s")
-        }
+        timerButton.setOnClickListener { showTimerMenu() }
 
         micButton.setOnClickListener {
             if (recording != null) return@setOnClickListener
@@ -760,6 +751,53 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
             },
         )
         tint(flashButton, flashMode != ImageCapture.FLASH_MODE_OFF)
+    }
+
+    /** Menu suspenso do temporizador, logo abaixo do botao. */
+    private fun showTimerMenu() {
+        val options = listOf(0 to "Desligado", 3 to "3 segundos", 5 to "5 segundos", 10 to "10 segundos")
+        val list = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(6), 0, dp(6))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(0xF2202022.toInt())
+                cornerRadius = dp(18).toFloat()
+            }
+            elevation = dp(8).toFloat()
+        }
+        val popup = PopupWindow(list, dp(200), LinearLayout.LayoutParams.WRAP_CONTENT, true).apply {
+            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+            elevation = dp(8).toFloat()
+            animationStyle = android.R.style.Animation_Dialog
+        }
+        list.addView(TextView(this).apply {
+            text = "Temporizador"
+            setTextColor(0xFF9A9A9E.toInt())
+            textSize = 13f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            setPadding(dp(20), dp(8), dp(20), dp(6))
+        })
+        options.forEach { (seconds, label) ->
+            val selected = seconds == timerSeconds
+            list.addView(TextView(this).apply {
+                text = if (selected) "✓  $label" else "     $label"
+                setTextColor(if (selected) ACCENT else WHITE)
+                textSize = 16f
+                typeface = Typeface.create(Typeface.DEFAULT, if (selected) Typeface.BOLD else Typeface.NORMAL)
+                setPadding(dp(20), dp(12), dp(20), dp(12))
+                val attrs = obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
+                background = attrs.getDrawable(0)
+                attrs.recycle()
+                setOnClickListener {
+                    timerSeconds = seconds
+                    savePrefs()
+                    renderTimer()
+                    popup.dismiss()
+                }
+            })
+        }
+        // Centraliza o menu sob o botao.
+        popup.showAsDropDown(timerButton, (timerButton.width - dp(200)) / 2, dp(4))
     }
 
     private fun renderTimer() {
