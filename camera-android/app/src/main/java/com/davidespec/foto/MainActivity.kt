@@ -1950,12 +1950,6 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         when (current) {
             "filters" -> {
                 // Miniaturas com a imagem atual do visor (sem filtro) e cada filtro aplicado.
-                // No video com filtro ligado o visor ja vem filtrado: usa a cena de exemplo.
-                val frame = if (mode == Mode.VIDEO && videoFilterBound) null else try {
-                    preview.bitmap
-                } catch (error: Exception) {
-                    null
-                }
                 if (mode != Mode.VIDEO) {
                     panel.addView(row(chip(if (settings.enhance) "✨ Aprimorar: ligado" else "✨ Aprimorar", settings.enhance) {
                         settings.enhance = !settings.enhance
@@ -1963,7 +1957,8 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
                         showEffectsPanel("filters")
                     }))
                 }
-                panel.addView(FilterStrip.create(this, frame, settings.filter) { f ->
+                // Miniaturas com uma imagem fixa de exemplo: nao mudam conforme a camera se mexe.
+                panel.addView(FilterStrip.create(this, null, settings.filter) { f ->
                     settings.filter = f.id
                     applyPreviewFilter()
                     // Primeiro filtro no video: religa a camera com o filtro OpenGL.

@@ -38,7 +38,7 @@ object FilterStrip {
         val density = context.resources.displayMetrics.density
         fun dp(v: Int) = (v * density).toInt()
 
-        val thumb = squareThumb(source ?: sampleScene(), dp(THUMB_DP) * 2)
+        val thumb = if (source != null) squareThumb(source, dp(THUMB_DP) * 2) else scene(dp(THUMB_DP) * 2)
         val row = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(4), dp(2), dp(4), dp(2))
@@ -128,6 +128,12 @@ object FilterStrip {
             }
         }
     }
+
+    private var cachedScene: Bitmap? = null
+
+    /** A cena fixa de exemplo, desenhada uma vez so. */
+    private fun scene(size: Int): Bitmap =
+        cachedScene?.takeIf { it.width == size } ?: sampleScene(size).also { cachedScene = it }
 
     /** Recorte quadrado central, reduzido para a miniatura. */
     fun squareThumb(source: Bitmap, size: Int): Bitmap {
