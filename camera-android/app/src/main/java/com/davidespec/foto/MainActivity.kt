@@ -266,7 +266,6 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
 
     private val audioLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (!granted) toast("Sem o microfone, os vídeos serão gravados sem som.")
             renderMic()
         }
 
@@ -573,28 +572,11 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
             if (mode == Mode.VIDEO) camera?.cameraControl?.enableTorch(flashMode == ImageCapture.FLASH_MODE_ON)
             savePrefs()
             renderFlash()
-            toast(
-                when {
-                    flashMode == ImageCapture.FLASH_MODE_OFF -> "Flash desligado"
-                    screen -> "Flash de tela ligado"
-                    mode == Mode.VIDEO -> "Lanterna ligada"
-                    flashMode == ImageCapture.FLASH_MODE_AUTO -> "Flash automático"
-                    else -> "Flash ligado"
-                },
-            )
         }
 
         hdrButton.setOnClickListener {
             settings.hdr = !settings.hdr
             renderHdr()
-            val native = extensions?.let { m -> baseSelector()?.let { m.isExtensionAvailable(it, ExtensionMode.HDR) } } == true
-            toast(
-                when {
-                    !settings.hdr -> "HDR desligado"
-                    native -> "HDR ligado (processamento do fabricante)"
-                    else -> "HDR ligado: 3 exposições combinadas no aparelho"
-                },
-            )
             bindCamera()
         }
 
@@ -609,7 +591,6 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
                 settings.microphone = !settings.microphone
             }
             renderMic()
-            toast(if (settings.microphone) "Microfone ligado" else "Microfone desligado: vídeo sem som")
         }
 
         fpsButton.setOnClickListener { showFpsMenu() }
@@ -1185,7 +1166,6 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
                 bindCamera(level + 1)
             } else {
                 if (keepRecording) recording?.stop()
-                showMessage("Esta combinação não é suportada pela câmera. Voltando ao modo Foto.")
                 if (mode != Mode.PHOTO) {
                     mode = Mode.PHOTO
                     renderModes()
@@ -1338,33 +1318,12 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         }
         setupEv(c)
         showResolution()
-        showModeInfo()
 
         if (mode == Mode.PRO) showProPanel()
         if (mode == Mode.FOOD || mode == Mode.MACRO) centerFocus()
         if (mode == Mode.MACRO) {
             manual.macroAf = macroCameraId == null && c.macroAf
             manual.apply(bound, c)
-        }
-    }
-
-    private fun showModeInfo() {
-        val text = when (mode) {
-            Mode.PORTRAIT -> if (nativeExtension != null) "Retrato: desfoque do fabricante" else "Retrato: desfoque por software (pessoas)"
-            Mode.NIGHT -> if (nativeExtension != null) "Noite: processamento do fabricante" else "Noite: 4 fotos combinadas — segure firme"
-            Mode.MACRO -> if (macroCameraId != null) "Macro: câmera macro" else "Macro: foco próximo da câmera principal"
-            Mode.PHOTO -> when {
-                !settings.hdr -> null
-                nativeExtension != null -> "HDR do fabricante"
-                computationalHdr() -> "HDR: 3 exposições combinadas"
-                else -> null
-            }
-            else -> null
-        }
-        if (text == null) {
-            if (!locked) infoLabel.visibility = View.GONE
-        } else {
-            showInfo(text, 3500)
         }
     }
 
@@ -1381,9 +1340,8 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
             CameraState.ERROR_MAX_CAMERAS_IN_USE -> "Muitas câmeras abertas. Feche outros apps de câmera."
             CameraState.ERROR_CAMERA_DISABLED -> "A câmera foi desativada pelo sistema."
             CameraState.ERROR_DO_NOT_DISTURB_MODE_ENABLED -> "Desative o modo Não perturbe para usar a câmera."
-            CameraState.ERROR_STREAM_CONFIG -> "Configuração não suportada por esta câmera."
             CameraState.ERROR_CAMERA_FATAL_ERROR -> "A câmera parou de responder. Feche e abra o app."
-            else -> "A câmera teve um problema e está tentando se recuperar."
+            else -> return
         }
         showMessage(text)
     }
@@ -1800,7 +1758,6 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
             .setMessage(raw)
             .setNeutralButton("Copiar") { _, _ ->
                 (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("QR Code", raw))
-                toast("Copiado.")
             }
             .setNegativeButton("Compartilhar") { _, _ ->
                 startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
@@ -2354,7 +2311,8 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
                 }
                 if (portraitSoftware) {
                     val blurred = FaceEffects.portrait(bitmap, settings.portraitBlur)
-                    if (blurred == null) notice = "Nenhuma pessoa encontrada: foto salva sem desfoque." else bitmap = blurred
+                    // Sem pessoa na foto, ela sai sem desfoque (sem aviso).
+                    if (blurred != null) bitmap = blurred
                 }
                 if (beauty != null && beauty.active) bitmap = FaceEffects.beauty(bitmap, beauty)
                 if (food) {
@@ -2423,7 +2381,6 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         if (!bursting) return
         bursting = false
         shutterLabel.visibility = View.GONE
-        if (burstCount > 1) toast("$burstCount fotos contínuas salvas")
     }
 
     // --- Video ---------------------------------------------------------------------------------
@@ -2643,7 +2600,6 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
             }
             main.post {
                 if (saved > 0) {
-                    toast("Documento salvo: $saved página(s)" + if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) " + PDF em Documentos/Foto" else "")
                     last?.let {
                         lastMedia = it
                         loadThumbnail(it)
@@ -2726,10 +2682,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
 
     /** Toque longo na miniatura: visualizador do app, com editar e informacoes. */
     private fun openInAppViewer() {
-        val uri = lastMedia ?: run {
-            toast("Nenhuma foto ainda.")
-            return
-        }
+        val uri = lastMedia ?: return
         viewerLauncher.launch(Intent(this, ViewerActivity::class.java).setData(uri))
     }
 
