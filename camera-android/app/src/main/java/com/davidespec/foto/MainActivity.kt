@@ -1697,7 +1697,6 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
 
     override fun onFaces(boxes: List<Rect>, transform: OutputTransform) {
         if (!tracksFaces()) {
-            overlay.faceBoxes = emptyList()
             return
         }
         val target = preview.outputTransform ?: return
@@ -1707,7 +1706,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
             return
         }
         val mapped = boxes.map { RectF(it).also { r -> mapper.mapRect(r) } }
-        overlay.faceBoxes = mapped
+        // Sem desenhar nada: o rosto so guia o foco automatico.
         // Foco automatico no maior rosto, sem brigar com o toque do usuario.
         val face = mapped.maxByOrNull { it.width() * it.height() } ?: return
         val now = System.currentTimeMillis()

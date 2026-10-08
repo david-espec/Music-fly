@@ -35,8 +35,6 @@ class CameraOverlay @JvmOverloads constructor(
     /** Retangulos em coordenadas desta view. */
     var qrBoxes: List<RectF> = emptyList()
         set(value) { field = value; invalidate() }
-    var faceBoxes: List<RectF> = emptyList()
-        set(value) { field = value; invalidate() }
 
     /** Circulo do modo Comida: raio como fracao do menor lado; null = desligado. */
     var foodRadius: Float? = null
@@ -54,11 +52,6 @@ class CameraOverlay @JvmOverloads constructor(
         color = 0xFFFFD60A.toInt()
         style = Paint.Style.STROKE
         strokeWidth = 3 * density
-    }
-    private val facePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xCCFFFFFF.toInt()
-        style = Paint.Style.STROKE
-        strokeWidth = 1.5f * density
     }
     private val foodShade = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x66000000 }
     private val foodRing = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -111,7 +104,6 @@ class CameraOverlay @JvmOverloads constructor(
             canvas.restore()
         }
 
-        faceBoxes.forEach { canvas.drawRoundRect(it, 8 * density, 8 * density, facePaint) }
         qrBoxes.forEach { canvas.drawRoundRect(it, 6 * density, 6 * density, qrPaint) }
     }
 
