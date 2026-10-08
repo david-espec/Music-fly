@@ -255,6 +255,33 @@ object ImageEffects {
         return out
     }
 
+    /**
+     * Versao rapida do "Aprimorar": o esticamento de niveis e linear, entao
+     * cabe numa ColorMatrix junto com o reforco de cor e os filtros, e a foto
+     * inteira e processada numa unica passada nativa.
+     */
+    fun enhanceMatrix(source: Bitmap): ColorMatrix {
+        val l = luma(source, 256)
+        val hist = IntArray(256)
+        l.data.forEach { hist[it.coerceIn(0, 255)]++ }
+        val total = l.data.size
+        fun percentile(p: Float): Int {
+            var acc = 0
+            for (v in 0..255) {
+                acc += hist[v]
+                if (acc >= total * p) return v
+            }
+            return 255
+        }
+        val lo = min(percentile(0.004f), 40)
+        val hi = max(percentile(0.996f), 205)
+        // v' = v + 0.7 * (esticado - v), com esticado = (v - lo) * 255 / (hi - lo)
+        val k = 255f / max(1, hi - lo)
+        val gain = 1f + 0.7f * (k - 1f)
+        val offset = -0.7f * k * lo
+        return Filters.chain(Filters.scale(gain, gain, gain), Filters.brightness(offset), Filters.saturation(1.12f))
+    }
+
     // --- Varias fotos: noite e HDR ------------------------------------------------------
 
     /** Luminancia reduzida para alinhar quadros (1 byte por pixel). */

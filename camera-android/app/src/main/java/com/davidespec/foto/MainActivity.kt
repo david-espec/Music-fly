@@ -223,6 +223,8 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
     private var timerSeconds = 0
 
     private var busy = false
+    /** Fotos tiradas que ainda estao sendo processadas em segundo plano. */
+    private var pendingProcessing = 0
     private var bursting = false
     private var burstCount = 0
     private var lastMedia: Uri? = null
@@ -1214,7 +1216,9 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
             }
         }
         val builder = ImageCapture.Builder()
-            .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
+            // Disparo rapido: no A04s o modo "maxima qualidade" segurava a foto por segundos.
+            // A qualidade vem do processamento do sensor configurado abaixo.
+            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
             .setJpegQuality(settings.jpegQuality.coerceIn(50, 100))
             .setFlashMode(if (usesScreenFlash()) ImageCapture.FLASH_MODE_OFF else flashMode)
             .setResolutionSelector(resolution.build())
@@ -2314,6 +2318,11 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
             setBusy(false)
             return
         }
+        // A foto ja foi tirada: o botao fica livre e o processamento segue em
+        // segundo plano. So trava se ja houver duas fotos na fila (memoria).
+        pendingProcessing++
+        setBusy(pendingProcessing >= 2)
+        thumbnail.alpha = 0.5f
         val mirror = settings.mirrorSelfies && lensFacing == CameraSelector.LENS_FACING_FRONT
         val portraitSoftware = mode == Mode.PORTRAIT && nativeExtension == null
         val beauty = if (beautyApplies()) FaceEffects.Beauty(
@@ -2328,7 +2337,8 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
             if (food) postConcat(foodMatrix())
         }
         val watermark = watermarkLines()
-        val quality = settings.jpegQuality
+        // 95 no lugar de 100: diferenca invisivel e gravacao bem mais rapida.
+        val quality = min(settings.jpegQuality, 95)
         val folder = settings.photoTarget
         val place = if (settings.location) location.last else null
 
@@ -2354,8 +2364,11 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
                     bitmap = ImageEffects.sharpen(bitmap, 0.5f * t)
                     bitmap = ImageEffects.radialFocus(bitmap, 0.5f, 0.5f, FOOD_RADIUS, min(bitmap.width, bitmap.height) * 0.03f * (0.3f + t))
                 }
-                if (enhance) bitmap = ImageEffects.autoEnhance(bitmap)
-                bitmap = ImageEffects.applyMatrix(bitmap, photoMatrix)
+                // Aprimorar + filtro + comida numa unica passada.
+                val finalMatrix = ColorMatrix()
+                if (enhance) finalMatrix.postConcat(ImageEffects.enhanceMatrix(bitmap))
+                finalMatrix.postConcat(photoMatrix)
+                bitmap = ImageEffects.applyMatrix(bitmap, finalMatrix)
                 bitmap = ImageEffects.watermark(bitmap, watermark)
                 MediaSaver.saveBitmap(this, bitmap, quality, folder, exif, place)
             } catch (error: OutOfMemoryError) {
@@ -2367,7 +2380,9 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
                 null
             }
             main.post {
-                setBusy(false)
+                pendingProcessing--
+                if (pendingProcessing < 2) setBusy(false)
+                if (pendingProcessing == 0) thumbnail.alpha = 1f
                 notice?.let { showMessage(it) }
                 uri?.let {
                     lastMedia = it
