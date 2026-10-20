@@ -1,0 +1,15 @@
+{
+  "name": "Carrossel de Fotos",
+  "short_name": "Carrossel",
+  "description": "Escolha fotos da galeria e veja passando devagar, em tela cheia.",
+  "lang": "pt-BR",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

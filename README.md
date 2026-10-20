@@ -2,6 +2,11 @@
 
 **No ar em https://david-espec.github.io/Music-fly/**
 
+Junto vai o **Carrossel de Fotos**, um app à parte em
+https://david-espec.github.io/Music-fly/carrossel/: escolha fotos da galeria,
+aperte OK e elas passam devagar, da direita para a esquerda, em tela cheia.
+O código fica todo em `public/carrossel/`.
+
 Player de música que funciona no navegador e se instala como app no celular ou
 no computador. **Sem anúncios, sem rastreamento, sem cadastro.**
 

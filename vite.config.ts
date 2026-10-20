@@ -30,6 +30,8 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         navigateFallback: 'index.html',
+        // O carrossel de fotos e um app a parte, em /carrossel/.
+        navigateFallbackDenylist: [/\/carrossel\//],
         // Faixas de audio podem ser grandes; o cache offline delas e feito
         // manualmente no IndexedDB, nao pelo Workbox.
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
