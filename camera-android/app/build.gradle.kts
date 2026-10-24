@@ -68,6 +68,11 @@ android {
         jvmTarget = "17"
     }
 
+    // O modelo de IA e lido direto do APK (mapeado em memoria), sem compressao.
+    androidResources {
+        noCompress += "tflite"
+    }
+
     lint {
         checkReleaseBuilds = false
         abortOnError = false
@@ -90,6 +95,9 @@ dependencies {
     implementation("androidx.camera:camera-extensions:$camerax")
 
     implementation("androidx.exifinterface:exifinterface:1.3.7")
+
+    // IA de melhoria de imagem (Zero-DCE) rodando no aparelho.
+    implementation("org.tensorflow:tensorflow-lite:2.14.0")
 
     // Visao computacional no proprio aparelho (modelos embutidos, sem rede).
     implementation("com.google.mlkit:barcode-scanning:17.3.0")

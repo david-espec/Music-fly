@@ -37,6 +37,14 @@ class VideoFilterEffect(processor: VideoFilterProcessor) : CameraEffect(
     Consumer { error -> Log.e("FotoGL", "Erro no filtro de video", error) },
 )
 
+/** O mesmo filtro OpenGL so no visor, para os modos de foto (a foto em si e filtrada na CPU). */
+class PreviewFilterEffect(processor: VideoFilterProcessor) : CameraEffect(
+    PREVIEW,
+    processor.executor,
+    processor,
+    Consumer { error -> Log.e("FotoGL", "Erro no filtro do visor", error) },
+)
+
 class VideoFilterProcessor : SurfaceProcessor, SurfaceTexture.OnFrameAvailableListener {
 
     private val thread = HandlerThread("FotoGL").apply { start() }

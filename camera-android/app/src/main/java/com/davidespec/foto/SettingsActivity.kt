@@ -132,6 +132,12 @@ class SettingsActivity : AppCompatActivity() {
         section("Efeitos nas fotos")
         card {
             switchRow(
+                "Melhoria com IA",
+                "Inteligência artificial no aparelho (Zero-DCE) recupera sombras e fotos escuras. Também no botão IA da câmera.",
+                settings.aiEnhance,
+            ) { settings.aiEnhance = it }
+            divider()
+            switchRow(
                 "Aprimorar automaticamente",
                 "Ajusta a luz, dá mais vida às cores e um toque de nitidez em cada foto.",
                 settings.enhance,

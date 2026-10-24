@@ -56,6 +56,8 @@ class CameraSettings(context: Context) {
     var filterIntensity by int("filterIntensity", 100)
     /** Melhoria automatica (niveis, cor e nitidez) nas fotos. */
     var enhance by boolean("enhance", false)
+    /** Melhoria por IA (Zero-DCE) nas fotos: recupera sombras e cenas escuras. */
+    var aiEnhance by boolean("aiEnhance", true)
     var portraitBlur by int("portraitBlur", 60)
     var foodIntensity by int("foodIntensity", 50)
     /** -1 frio, 0 neutro, 1 quente. */

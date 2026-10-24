@@ -152,6 +152,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
     private lateinit var settingsButton: ImageButton
     private lateinit var flashButton: ImageButton
     private lateinit var hdrButton: TextView
+    private lateinit var aiButton: TextView
     private lateinit var timerButton: ImageButton
     private lateinit var micButton: ImageButton
     private lateinit var fpsButton: TextView
@@ -362,6 +363,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         settingsButton = findViewById(R.id.settingsButton)
         flashButton = findViewById(R.id.flashButton)
         hdrButton = findViewById(R.id.hdrButton)
+        aiButton = findViewById(R.id.aiButton)
         timerButton = findViewById(R.id.timerButton)
         micButton = findViewById(R.id.micButton)
         fpsButton = findViewById(R.id.fpsButton)
@@ -588,6 +590,11 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         }
 
         timerButton.setOnClickListener { showTimerMenu() }
+
+        aiButton.setOnClickListener {
+            settings.aiEnhance = !settings.aiEnhance
+            renderAi()
+        }
 
         micButton.setOnClickListener {
             if (recording != null) return@setOnClickListener
@@ -876,6 +883,14 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         else hdrButton.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
     }
 
+    /** Botao IA: amarelo quando a melhoria por IA esta ligada. */
+    private fun renderAi() {
+        aiButton.visibility = if (mode in AI_MODES) View.VISIBLE else View.GONE
+        aiButton.setTextColor(if (settings.aiEnhance) ACCENT else WHITE)
+        aiButton.paintFlags = if (settings.aiEnhance) aiButton.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
+        else aiButton.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
+    }
+
     private fun renderMic() {
         val on = settings.microphone && hasAudioPermission()
         micButton.setImageResource(if (on) R.drawable.ic_mic else R.drawable.ic_mic_off)
@@ -905,6 +920,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         if (mode == Mode.PANORAMA) renderPanoramaIdle()
         overlay.foodRadius = if (mode == Mode.FOOD) FOOD_RADIUS else null
         renderHdr()
+        renderAi()
         renderEffectsButton()
     }
 
@@ -1159,12 +1175,17 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
             provider.unbindAll()
             val viewPort = if (mode != Mode.VIDEO && mode != Mode.PANORAMA) preview.viewPort else null
             // Filtro gravado no video: so quando ha filtro escolhido; some no ultimo recuo.
-            val effect = if (mode == Mode.VIDEO && videoFilterWanted() && level <= 2) {
+            val previewMatrix = filterMatrix()
+            val effect = when {
+                level > 2 || nativeExtension != null -> null
+                mode == Mode.VIDEO && videoFilterWanted() -> VideoFilterEffect(videoFilter)
+                // Fotos: o filtro aparece no visor pela GPU (mesmo sistema do video).
+                mode != Mode.VIDEO && mode != Mode.PANORAMA && !Filters.isIdentity(previewMatrix) -> PreviewFilterEffect(videoFilter)
+                else -> null
+            }
+            if (effect != null) {
                 videoFilterCreated = true
-                videoFilter.setMatrix(filterMatrix())
-                VideoFilterEffect(videoFilter)
-            } else {
-                null
+                videoFilter.setMatrix(previewMatrix)
             }
             videoFilterBound = false
             val bound = if (viewPort != null || effect != null) {
@@ -1820,6 +1841,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
     // --- Filtros e efeitos no visor --------------------------------------------------------------
 
     private fun filterApplies() = mode in listOf(Mode.PHOTO, Mode.PORTRAIT, Mode.PRO, Mode.MACRO, Mode.NIGHT, Mode.FOOD, Mode.VIDEO)
+    private fun aiApplies() = settings.aiEnhance && mode in AI_MODES
     private fun enhanceApplies() = settings.enhance && mode in listOf(Mode.PHOTO, Mode.PORTRAIT, Mode.PRO, Mode.MACRO, Mode.FOOD)
     private fun videoFilterWanted() = settings.filter != "original"
     private fun beautyApplies() = mode == Mode.PHOTO || mode == Mode.PORTRAIT
@@ -1844,7 +1866,8 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
     /** Pinta o visor com o filtro (GPU, camada do PreviewView). */
     private fun applyPreviewFilter() {
         val matrix = filterMatrix()
-        if (mode == Mode.VIDEO) {
+        // Com o filtro OpenGL ligado, o visor ja vem filtrado.
+        if (videoFilterBound || mode == Mode.VIDEO) {
             preview.setLayerType(View.LAYER_TYPE_NONE, null)
             if (videoFilterBound) videoFilter.setMatrix(matrix)
             renderEffectsButton()
@@ -1948,8 +1971,8 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
                 settings.filter = f.id
                 settings.filterIntensity = 100
                 applyPreviewFilter()
-                // Primeiro filtro no video: religa a camera com o filtro OpenGL.
-                if (mode == Mode.VIDEO && !videoFilterBound && videoFilterWanted() && recording == null) bindCamera()
+                // Primeiro filtro: religa a camera com o filtro OpenGL no visor.
+                if (!videoFilterBound && !Filters.isIdentity(filterMatrix()) && recording == null) bindCamera()
                 showEffectsPanel("filters")
             })
             panel.visibility = View.VISIBLE
@@ -2143,7 +2166,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
     }
 
     private fun needsProcessing(): Boolean =
-        computationalNight() || computationalHdr() || enhanceApplies() ||
+        computationalNight() || computationalHdr() || enhanceApplies() || aiApplies() ||
             (filterApplies() && settings.filter != "original") ||
             (beautyApplies() && settings.beautyActive) ||
             (mode == Mode.PORTRAIT && nativeExtension == null) ||
@@ -2332,6 +2355,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         val food = mode == Mode.FOOD
         // Na foto o "Aprimorar" e o completo (niveis, cor, nitidez); o visor so mostra uma previa.
         val enhance = enhanceApplies()
+        val ai = aiApplies()
         val photoMatrix = ColorMatrix().apply {
             if (filterApplies()) postConcat(Filters.byId(settings.filter).matrix(settings.filterIntensity / 100f))
             if (food) postConcat(foodMatrix())
@@ -2353,6 +2377,8 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
                     hdr -> ImageEffects.hdrFuse(frames)
                     else -> frames.first()
                 }
+                // IA primeiro: recupera sombras antes dos demais efeitos.
+                if (ai) bitmap = AiEnhancer.enhance(this, bitmap)
                 if (portraitSoftware) {
                     val blurred = FaceEffects.portrait(bitmap, settings.portraitBlur)
                     // Sem pessoa na foto, ela sai sem desfoque (sem aviso).
@@ -2747,6 +2773,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
     companion object {
         private const val TAG = "Foto"
         private const val FOOD_RADIUS = 0.32f
+        private val AI_MODES = setOf(Mode.PHOTO, Mode.PORTRAIT, Mode.MACRO, Mode.FOOD, Mode.NIGHT)
         private val WHITE = 0xFFFFFFFF.toInt()
         private val ACCENT = 0xFFFFD60A.toInt()
     }

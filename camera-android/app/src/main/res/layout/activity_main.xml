@@ -121,6 +121,12 @@
             android:contentDescription="HDR"
             android:text="HDR" />
 
+        <TextView
+            android:id="@+id/aiButton"
+            style="@style/TopText"
+            android:contentDescription="Melhoria com IA"
+            android:text="IA" />
+
         <ImageButton
             android:id="@+id/timerButton"
             style="@style/TopIcon"
