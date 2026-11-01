@@ -308,6 +308,18 @@
                 android:textColor="@color/accent"
                 android:textSize="13sp"
                 android:textStyle="bold" />
+
+            <!-- Trava o brilho no valor escolhido -->
+            <ImageButton
+                android:id="@+id/evLock"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="6dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Travar o brilho"
+                android:scaleType="center"
+                android:src="@drawable/ic_lock_open"
+                app:tint="@color/white" />
         </LinearLayout>
 
         <!-- Zoom continuo, aparece ao pincar ou tocar no zoom ativo -->

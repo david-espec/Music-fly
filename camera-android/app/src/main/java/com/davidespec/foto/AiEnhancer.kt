@@ -45,7 +45,7 @@ object AiEnhancer {
                 val fd = context.assets.openFd(MODEL)
                 val model: MappedByteBuffer = FileInputStream(fd.fileDescriptor).channel
                     .map(FileChannel.MapMode.READ_ONLY, fd.startOffset, fd.declaredLength)
-                Interpreter(model, Interpreter.Options().setNumThreads(4)).also { interpreter = it }
+                Interpreter(model, Interpreter.Options().setNumThreads(2)).also { interpreter = it }
             } catch (error: Throwable) {
                 Log.e(TAG, "Nao foi possivel carregar o modelo de IA", error)
                 failed = true

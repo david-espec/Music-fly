@@ -169,6 +169,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
     private lateinit var evBar: View
     private lateinit var evSeek: SeekBar
     private lateinit var evValue: TextView
+    private lateinit var evLock: ImageButton
     private lateinit var zoomSliderBox: View
     private lateinit var zoomSeek: SeekBar
     private lateinit var zoomValue: TextView
@@ -245,7 +246,15 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
     private var countdownTask: Runnable? = null
     private val sound = MediaActionSound()
 
-    private val hideEv = Runnable { evBar.visibility = View.GONE }
+    private val hideEv = Runnable { if (!evLocked) evBar.visibility = View.GONE }
+    /** Brilho travado pelo cadeado da barra de exposicao. */
+    private var evLocked = false
+    private val relockEv = Runnable {
+        if (evLocked) {
+            manual.aeLock = true
+            manual.apply(camera, caps)
+        }
+    }
     private val hideZoomSlider = Runnable { zoomSliderBox.visibility = View.GONE }
     private val hideQr = Runnable {
         qrChip.visibility = View.GONE
@@ -256,6 +265,8 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
 
     private val permissions = buildList {
         add(Manifest.permission.CAMERA)
+        // Microfone ja na primeira vez, junto com a camera: depois nao pede mais.
+        add(Manifest.permission.RECORD_AUDIO)
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
             add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
         }
@@ -263,6 +274,8 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+            settings.prefs.edit().putBoolean("askedMic", true).apply()
+            renderMic()
             if (result[Manifest.permission.CAMERA] == true) {
                 permissionPanel.visibility = View.GONE
                 startCamera()
@@ -329,7 +342,13 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         settings = CameraSettings(this)
         bindViews()
 
-        io = Executors.newSingleThreadExecutor()
+        // Prioridade baixa: processar fotos nao pode travar o visor.
+        io = Executors.newSingleThreadExecutor { task ->
+            Thread({
+                android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+                task.run()
+            }, "foto-io")
+        }
         analysisExecutor = Executors.newSingleThreadExecutor()
         analyzer = FrameAnalyzer(this)
         location = LocationTracker(this)
@@ -347,7 +366,15 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         applyLayout()
         loadLastPhoto()
 
-        if (hasCameraPermission()) startCamera() else permissionLauncher.launch(permissions)
+        when {
+            !hasCameraPermission() -> permissionLauncher.launch(permissions)
+            // Quem ja tinha dado a camera recebe o pedido do microfone uma unica vez.
+            !hasAudioPermission() && !settings.prefs.getBoolean("askedMic", false) -> {
+                startCamera()
+                permissionLauncher.launch(arrayOf(Manifest.permission.RECORD_AUDIO))
+            }
+            else -> startCamera()
+        }
     }
 
     private fun bindViews() {
@@ -380,6 +407,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         evBar = findViewById(R.id.evBar)
         evSeek = findViewById(R.id.evSeek)
         evValue = findViewById(R.id.evValue)
+        evLock = findViewById(R.id.evLock)
         zoomSliderBox = findViewById(R.id.zoomSliderBox)
         zoomSeek = findViewById(R.id.zoomSeek)
         zoomValue = findViewById(R.id.zoomValue)
@@ -651,13 +679,29 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
                 val c = caps ?: return
                 val index = progress + c.evRange.lower
                 evValue.text = formatEv(index * c.evStep)
-                if (fromUser) camera?.cameraControl?.setExposureCompensationIndex(index)
+                if (fromUser) {
+                    if (evLocked) {
+                        manual.aeLock = false
+                        manual.apply(camera, caps)
+                        main.removeCallbacks(relockEv)
+                        main.postDelayed(relockEv, 700)
+                    }
+                    camera?.cameraControl?.setExposureCompensationIndex(index)
+                }
             }
             override fun onStartTrackingTouch(seekBar: SeekBar) = main.removeCallbacks(hideEv)
             override fun onStopTrackingTouch(seekBar: SeekBar) {
                 main.postDelayed(hideEv, 4000)
             }
         })
+        evLock.setOnClickListener {
+            evLocked = !evLocked
+            manual.aeLock = evLocked || locked
+            manual.apply(camera, caps)
+            renderEvLock()
+            if (evLocked) main.removeCallbacks(hideEv) else main.postDelayed(hideEv, 3000)
+        }
+
         evValue.setOnClickListener {
             camera?.cameraControl?.setExposureCompensationIndex(0)
             caps?.let { evSeek.progress = -it.evRange.lower }
@@ -933,10 +977,13 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
     private fun setMode(target: Mode) {
         if (target == mode || recording != null || busy || panorama?.running == true) return
         cancelCountdown()
-        if (target == Mode.VIDEO && settings.microphone && !hasAudioPermission()) requestMicrophone()
+        // Sem microfone permitido, o video sai sem som; nao pergunta de novo a cada vez.
         if (mode == Mode.VIDEO) camera?.cameraControl?.enableTorch(false)
         unlock()
         manual.resetAll()
+        evLocked = false
+        renderEvLock()
+        evBar.visibility = View.GONE
         mode = target
         if (mode == Mode.VIDEO && flashMode == ImageCapture.FLASH_MODE_AUTO) flashMode = ImageCapture.FLASH_MODE_OFF
         if (mode == Mode.MACRO || mode == Mode.PANORAMA) lensFacing = CameraSelector.LENS_FACING_BACK
@@ -1127,7 +1174,8 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         val previewBuilder = Preview.Builder()
             .setResolutionSelector(ResolutionSelector.Builder().setAspectRatioStrategy(ratioStrategy).build())
         if (nativeExtension == null) {
-            Camera2Interop.Extender(previewBuilder).setSessionCaptureCallback(manual.captureCallback)
+            val ext = Camera2Interop.Extender(previewBuilder).setSessionCaptureCallback(manual.captureCallback)
+            motionSafeFps(base)?.let { ext.setCaptureRequestOption(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, it) }
         }
         val previewUseCase = previewBuilder.build().also { it.setSurfaceProvider(preview.surfaceProvider) }
         val useCases = mutableListOf<UseCase>(previewUseCase)
@@ -1180,7 +1228,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
                 level > 2 || nativeExtension != null -> null
                 mode == Mode.VIDEO && videoFilterWanted() -> VideoFilterEffect(videoFilter)
                 // Fotos: o filtro aparece no visor pela GPU (mesmo sistema do video).
-                mode != Mode.VIDEO && mode != Mode.PANORAMA && !Filters.isIdentity(previewMatrix) -> PreviewFilterEffect(videoFilter)
+                mode != Mode.VIDEO && mode != Mode.PANORAMA && settings.filter != "original" -> PreviewFilterEffect(videoFilter)
                 else -> null
             }
             if (effect != null) {
@@ -1473,6 +1521,30 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         evValue.text = formatEv(index * c.evStep)
     }
 
+    private fun renderEvLock() {
+        evLock.setImageResource(if (evLocked) R.drawable.ic_lock else R.drawable.ic_lock_open)
+        evLock.imageTintList = ColorStateList.valueOf(if (evLocked) ACCENT else WHITE)
+        evLock.contentDescription = if (evLocked) "Destravar o brilho" else "Travar o brilho"
+    }
+
+    /**
+     * Faixa de quadros por segundo que limita o tempo de exposicao do visor e
+     * da foto: com no minimo ~24 fps cada quadro fica abaixo de 1/24 s, o que
+     * reduz muito o borrao de coisas em movimento. O escuro que sobra a IA
+     * compensa. Noite e Pro ficam livres para exposicoes longas.
+     */
+    private fun motionSafeFps(selector: CameraSelector): Range<Int>? {
+        if (mode !in listOf(Mode.PHOTO, Mode.PORTRAIT, Mode.MACRO, Mode.FOOD)) return null
+        val info = try {
+            cameraProvider?.getCameraInfo(selector)
+        } catch (error: Exception) {
+            null
+        } ?: return null
+        return CameraCapabilities(info).fpsRanges
+            .filter { it.lower >= 20 && it.upper <= 30 }
+            .maxWithOrNull(compareBy<Range<Int>>({ it.lower }, { -it.upper }))
+    }
+
     private fun showEvBar() {
         val c = caps ?: return
         if (!c.evSupported || nativeExtension != null || manual.isManualExposure || mode == Mode.PANORAMA) return
@@ -1701,7 +1773,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
     private fun unlock() {
         if (!locked) return
         locked = false
-        manual.aeLock = false
+        manual.aeLock = evLocked
         manual.awbLock = false
         camera?.cameraControl?.cancelFocusAndMetering()
         manual.apply(camera, caps)
@@ -1972,7 +2044,7 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
                 settings.filterIntensity = 100
                 applyPreviewFilter()
                 // Primeiro filtro: religa a camera com o filtro OpenGL no visor.
-                if (!videoFilterBound && !Filters.isIdentity(filterMatrix()) && recording == null) bindCamera()
+                if (!videoFilterBound && settings.filter != "original" && recording == null) bindCamera()
                 showEffectsPanel("filters")
             })
             panel.visibility = View.VISIBLE
@@ -2749,6 +2821,15 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
         } else {
             Intent(Intent.ACTION_VIEW).setDataAndType(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, "image/*")
         }
+        // Abre direto na galeria do aparelho, sem a pergunta "Abrir com".
+        for (pkg in GALLERY_PACKAGES) {
+            try {
+                viewerLauncher.launch(Intent(intent).setPackage(pkg))
+                return
+            } catch (error: Exception) {
+                // Essa galeria nao existe neste celular: tenta a proxima.
+            }
+        }
         try {
             viewerLauncher.launch(intent)
         } catch (error: Exception) {
@@ -2773,6 +2854,13 @@ class MainActivity : AppCompatActivity(), FrameAnalyzer.Listener, SensorEventLis
     companion object {
         private const val TAG = "Foto"
         private const val FOOD_RADIUS = 0.32f
+        /** Galerias conhecidas, na ordem de preferencia (Samsung primeiro). */
+        private val GALLERY_PACKAGES = listOf(
+            "com.sec.android.gallery3d",
+            "com.google.android.apps.photos",
+            "com.miui.gallery",
+            "com.android.gallery3d",
+        )
         private val AI_MODES = setOf(Mode.PHOTO, Mode.PORTRAIT, Mode.MACRO, Mode.FOOD, Mode.NIGHT)
         private val WHITE = 0xFFFFFFFF.toInt()
         private val ACCENT = 0xFFFFD60A.toInt()
