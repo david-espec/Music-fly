@@ -1,7 +1,5 @@
 # Music Fly
 
-> Este repositório também tem o **D Libery**, uma biblioteca digital pessoal de livros, na pasta [`d-libery/`](d-libery/README.md).
-
 **No ar em https://david-espec.github.io/Music-fly/**
 
 Player de música que funciona no navegador e se instala como app no celular ou
