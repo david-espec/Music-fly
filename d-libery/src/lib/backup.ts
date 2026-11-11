@@ -1,4 +1,5 @@
 import * as store from './db';
+import { isNative } from './native';
 import type { Book, Settings } from '../types';
 
 interface BackupFile {
@@ -36,13 +37,20 @@ export async function exportBackup() {
     books,
     images: await Promise.all(images.map(async (i) => ({ id: i.id, type: i.blob.type, data: await toBase64(i.blob) }))),
   };
-  const blob = new Blob([JSON.stringify(file)], { type: 'application/json' });
+  const json = JSON.stringify(file);
+  const name = `d-libery-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  if (isNative()) {
+    // No APK nao ha "download": grava na pasta Documentos do celular.
+    const { Filesystem, Directory, Encoding } = await import('@capacitor/filesystem');
+    await Filesystem.writeFile({ path: name, data: json, directory: Directory.Documents, encoding: Encoding.UTF8 });
+    return { count: books.length, where: `Documentos/${name}` };
+  }
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `d-libery-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  a.download = name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-  return books.length;
+  return { count: books.length, where: 'Downloads' };
 }
 
 /** Restaura um backup, somando a estante atual (livros com mesmo id sao substituidos). */

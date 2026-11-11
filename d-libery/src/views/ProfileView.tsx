@@ -88,7 +88,10 @@ export function ProfileView() {
       </div>
 
       <div className="menu">
-        <Row icon={<IconDownload size={20} />} label="Exportar backup" onClick={async () => { const n = await exportBackup(); toast(`Backup com ${n} livros gerado`); }} />
+        <Row icon={<IconDownload size={20} />} label="Exportar backup" onClick={async () => {
+          try { const r = await exportBackup(); toast(`Backup com ${r.count} livros salvo em ${r.where}`); }
+          catch (e) { toast(`Não foi possível salvar o backup: ${(e as Error).message}`); }
+        }} />
         <Row icon={<IconUpload size={20} />} label="Restaurar backup" onClick={() => importRef.current?.click()} />
         <Row icon={<IconInfo size={20} />} label="Sobre o app" onClick={() => setSheet('about')} />
         <Row icon={<IconTrash size={20} />} label="Apagar todos os dados" onClick={() => setConfirmWipe(true)} />

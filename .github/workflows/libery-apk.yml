@@ -1,0 +1,105 @@
+name: Gerar o APK do D Libery
+
+on:
+  push:
+    branches: [claude/personal-digital-library-ylbjgq]
+    paths:
+      - 'd-libery/**'
+      - '.github/workflows/libery-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: libery-apk
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: d-libery
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build do app web
+        run: |
+          npm ci
+          npx tsc -b --noEmit
+          npx vite build
+          npx cap sync android
+
+      - name: Compilar o APK
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+        run: |
+          cd android
+          chmod +x gradlew
+          set +e
+          ./gradlew assembleRelease --no-daemon > build.log 2>&1
+          status=$?
+          set -e
+          if [ $status -ne 0 ]; then
+            tail -n 60 build.log
+            echo "===== ERROS ====="
+            grep -E "error:|ERROR:|What went wrong|FAILURE" -A4 build.log | head -150
+            exit 1
+          fi
+
+      # Chave de assinatura: o Android so instala uma versao nova por cima da
+      # antiga (sem apagar os livros) se a chave for sempre a mesma.
+      #  1. Preferida: segredos LIBERY_KEYSTORE_BASE64 e LIBERY_KEYSTORE_PASSWORD.
+      #  2. Sem eles: uma chave gerada na primeira build e guardada no cache do
+      #     Actions (fica estavel enquanto o cache existir).
+      - name: Restaurar chave do cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.libery-keystore
+          key: libery-keystore-v1
+
+      - name: Assinar
+        env:
+          KS_B64: ${{ secrets.LIBERY_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.LIBERY_KEYSTORE_PASSWORD }}
+        run: |
+          KS="$HOME/.libery-keystore/dlibery.jks"
+          if [ -n "$KS_B64" ] && [ -n "$KS_PASS" ]; then
+            echo "Usando a chave dos segredos do repositorio"
+            KS="$RUNNER_TEMP/dlibery.jks"
+            echo "$KS_B64" | base64 -d > "$KS"
+            PASS="$KS_PASS"
+          else
+            mkdir -p "$HOME/.libery-keystore"
+            PASS_FILE="$HOME/.libery-keystore/pass"
+            if [ ! -f "$KS" ]; then
+              echo "Gerando chave nova (guardada no cache do Actions)"
+              head -c 24 /dev/urandom | base64 | tr -d '/+=' > "$PASS_FILE"
+              keytool -genkeypair -keystore "$KS" -alias dlibery -keyalg RSA -keysize 2048 -validity 10000 \
+                -storepass "$(cat "$PASS_FILE")" -keypass "$(cat "$PASS_FILE")" -dname "CN=D Libery, C=BR"
+            fi
+            PASS="$(cat "$PASS_FILE")"
+          fi
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/zipalign" -p -f 4 android/app/build/outputs/apk/release/app-release-unsigned.apk aligned.apk
+          "$BT/apksigner" sign --ks "$KS" --ks-key-alias dlibery --ks-pass "pass:$PASS" --key-pass "pass:$PASS" \
+            --out D-Libery.apk aligned.apk
+          "$BT/apksigner" verify D-Libery.apk
+          ls -la D-Libery.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: D-Libery-apk
+          path: d-libery/D-Libery.apk

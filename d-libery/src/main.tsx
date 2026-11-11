@@ -6,7 +6,10 @@ import { AppProvider } from './store/AppStore';
 import { ToastProvider } from './components/Toast';
 import './styles.css';
 
-if (import.meta.env.PROD) registerSW({ immediate: true });
+import { isNative } from './lib/native';
+
+// No APK os arquivos ja estao dentro do app; o service worker so serve para a versao web.
+if (import.meta.env.PROD && !isNative()) registerSW({ immediate: true });
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

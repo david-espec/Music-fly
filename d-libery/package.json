@@ -12,6 +12,8 @@
     "icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {
+    "@capacitor/core": "^8.6.0",
+    "@capacitor/filesystem": "^8.1.5",
     "barcode-detector": "^3.2.3",
     "idb": "^8.0.4",
     "react": "^19.3.1",
@@ -19,6 +21,8 @@
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/cli": "^8.6.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",

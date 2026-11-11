@@ -1,0 +1,14 @@
+{
+  "appId": "app.dlibery.biblioteca",
+  "appName": "D Libery",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#121014"
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "native",
+      "initialViewportFitValueHint": "cover"
+    }
+  }
+}
